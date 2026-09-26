@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Box, Text, Path } from './pixel';
 import { theme as T, verticalGradient } from './theme';
+import { appearance } from './config';
 import { Rect, BAR, TITLE } from './model';
 
 export function AppGlyph({ icon, size = 20, color = T.accent }: { icon: string; size?: number; color?: string }) {
@@ -15,7 +16,7 @@ export function AppGlyph({ icon, size = 20, color = T.accent }: { icon: string; 
 
 /** Presentation primitives deliberately do not own processes or session state. */
 export function Desktop({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
-  return <Box style={{ width, height, background: { from: [0, 0], to: [1, 1], stops: [{ at: 0, color: '#1e2441' }, { at: 0.55, color: '#111c30' }, { at: 1, color: '#0c242a' }] } }}>{children}</Box>;
+  return <Box style={{ width, height, background: { from: [0, 0], to: [1, 1], stops: [{ at: 0, color: appearance.colors.desktopStart }, { at: 0.55, color: appearance.colors.desktopMiddle }, { at: 1, color: appearance.colors.desktopEnd }] } }}>{children}</Box>;
 }
 export function AppWindow({ rect, focused, minimized, maximized, children }: { rect: Rect; focused: boolean; minimized: boolean; maximized: boolean; children: React.ReactNode }) {
   return <Box hidden={minimized} style={{ position: 'absolute', inset: { left: rect.x, top: rect.y }, width: rect.width, height: rect.height }}>
@@ -29,9 +30,11 @@ export function Taskbar({ children }: { children: React.ReactNode }) {
   return <Box style={{ position: 'absolute', inset: { left: 0, bottom: 0 }, width: '100%', height: BAR, background: verticalGradient('#29354a', '#152034'), border: { top: [1, '#52617b'], bottom: [1, '#0b1220'] } }}>{children}</Box>;
 }
 export function DesktopIcon({ name, icon, index, desktopHeight, available, font, selected, onSelect, onLaunch }: { name: string; icon: string; index: number; desktopHeight: number; available: boolean; font: number; selected: boolean; onSelect(): void; onLaunch(): void }) {
-  const last = useRef(0), rows = Math.max(1, Math.floor((desktopHeight - BAR - 58) / 106));
-  return <Box onClick={() => { onSelect(); const now = Date.now(); if (now - last.current < 450) { last.current = 0; onLaunch(); } else last.current = now; }} style={{ position: 'absolute', inset: { left: 22 + Math.floor(index / rows) * 118, top: 58 + (index % rows) * 106 }, width: 106, height: 92, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cornerRadius: 12, background: selected ? '#2d3a54' : undefined, border: selected ? { width: 1, color: '#7181a4' } : undefined, hoverBackground: '#24304b' }}>
-    <Box style={{ width: 48, height: 48, cornerRadius: 13, background: icon === '>_' ? '#233d42' : '#302948', alignItems: 'center', justifyContent: 'center', border: { width: 1, color: icon === '>_' ? '#375a5a' : '#51416f' } }}><AppGlyph size={26} icon={icon} color={available ? icon === '>_' ? '#6ee7c5' : '#c4b5fd' : '#8c9dbb'} /></Box>
-    <Text style={{ font, maxWidth: 102, fontSize: 12, wrap: false, ellipsis: true, color: '#e7eeff', selectable: false }}>{name}</Text>
+  const last = useRef(0), { iconSize, iconTextSize } = appearance.desktop;
+  const tileWidth = Math.max(106, iconSize + 32, iconTextSize * 8.5), tileHeight = Math.max(92, Math.ceil(iconSize + iconTextSize * 1.4 + 27));
+  const stepY = tileHeight + 14, rows = Math.max(1, Math.floor((desktopHeight - BAR - 58) / stepY));
+  return <Box onClick={() => { onSelect(); const now = Date.now(); if (now - last.current < 450) { last.current = 0; onLaunch(); } else last.current = now; }} style={{ position: 'absolute', inset: { left: 22 + Math.floor(index / rows) * (tileWidth + 12), top: 58 + (index % rows) * stepY }, width: tileWidth, height: tileHeight, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, cornerRadius: 12, background: selected ? '#2d3a54' : undefined, border: selected ? { width: 1, color: '#7181a4' } : undefined, hoverBackground: '#24304b' }}>
+    <Box style={{ width: iconSize, height: iconSize, flexShrink: 0, cornerRadius: iconSize * 0.27, background: icon === '>_' ? '#233d42' : '#302948', alignItems: 'center', justifyContent: 'center', border: { width: 1, color: icon === '>_' ? '#375a5a' : '#51416f' } }}><AppGlyph size={iconSize * 26 / 48} icon={icon} color={available ? icon === '>_' ? '#6ee7c5' : T.accent : T.muted} /></Box>
+    <Text style={{ font, maxWidth: tileWidth - 4, fontSize: iconTextSize, wrap: false, ellipsis: true, color: T.text, selectable: false }}>{name}</Text>
   </Box>;
 }

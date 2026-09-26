@@ -7,7 +7,8 @@ import { Desktop as DesktopFrame, AppWindow as WindowFrame, TitleBar as HeaderFr
 import { flattenGuestFrame } from './pixel-frame';
 import { Screen } from './terminal';
 import { lines, send, sessionPath } from './ipc';
-import { theme as T, verticalGradient } from './theme';
+import { theme as T, verticalGradient, applyAppearance } from './theme';
+import { appearance, watchConfig } from './config';
 import { contains, menuRect, taskLayout } from './layout';
 let uiFont = 0;
 function Text(props: TextProps) { return <PixelText {...props} style={{ font: uiFont, ...props.style }} />; }
@@ -17,7 +18,8 @@ export function attach(name: string) {
   let socket = net.connect(sessionPath(name));
   const initialSocket = socket;
   let switching = false;
-  let root: PixelRoot, update = () => {}, state: DesktopState | null = null, error = '', closed = false;
+  let root: PixelRoot, update = () => {}, state: DesktopState | null = null, error = '', closed = false, configError = '';
+  let stopConfig = () => {};
   const screens = new Map<string, Screen>(), frames = new Map<string, Frame>(), surfaces = new Map<string, Surface>();
   let menu: Menu | null = null, selectedIcon: string | null = null;
   let tooltip: { x: number; title: string } | null = null;
@@ -31,7 +33,7 @@ export function attach(name: string) {
   const launch = (app: string) => { menu = null; tooltip = null; command({ type: 'launch', app }); update(); };
   function finish(code = 0) {
     if (closed) return; closed = true;
-    socket.destroy(); root?.stop(); process.exit(code);
+    stopConfig(); socket.destroy(); root?.stop(); process.exit(code);
   }
   function context(x: number, y: number, id?: string, overflow = false) {
     tooltip = null; menu = { x, y, id, overflow }; update();
@@ -73,6 +75,7 @@ export function attach(name: string) {
     command({ type: 'attach', width: root.info.width, height: root.info.height, cell: { width: root.info.cellWidth, height: root.info.cellHeight }, colors: root.info.colors });
     root.setTitle(`Zatara · ${name}`);
     root.render(<Desktop />);
+    stopConfig = watchConfig(next => { applyAppearance(next); update(); }, message => { if (message !== configError) { configError = message; update(); } });
     if (fs.existsSync('/System/Library/Fonts/SFNS.ttf')) void root.registerFont('/System/Library/Fonts/SFNS.ttf').then(font => { uiFont = font; update(); });
   });
   initialSocket.on('error', e => { if (socket === initialSocket) { process.stderr.write(e.message + '\n'); finish(1); } });
@@ -193,7 +196,7 @@ export function attach(name: string) {
       <TitleBar w={w} r={r} />
       <Box style={{ margin: { left: 2, top: 1 }, width: cw, height: ch, overflow: 'hidden' }}>
         {w.kind === 'shell' ? <ShellView w={w} width={cw} height={ch} /> : <GuestView w={w} width={cw} height={ch} />}
-        {w.status !== 'Running' && <Box style={{ position: 'absolute', inset: { top: 0, left: 0 }, width: cw, padding: 14, background: '#25314b' }}><Text style={{ fontSize: 12, color: T.text, wrap: true }}>{w.status}</Text></Box>}
+        {w.status !== 'Running' && <Box style={{ position: 'absolute', inset: { top: 0, left: 0 }, width: cw, padding: 14, background: '#25314b' }}><Text style={{ fontSize: T.labelSize, color: T.text, wrap: true }}>{w.status}</Text></Box>}
       </Box>
       {!w.maximized && ['n','s','e','w','se','sw','ne','nw'].map(edge => <ResizeHandle key={edge} w={w} r={r} edge={edge} />)}
     </WindowFrame>;
@@ -204,7 +207,7 @@ export function attach(name: string) {
       <Box style={{ position: 'absolute', inset: { left: layout.launcher.x, top: 4 }, width: layout.launcher.width, height: 36 }}><Button label={layout.compact ? "Z" : "Zatara"} accent onClick={() => context(12, root.info.height - BAR)} /></Box>
       {layout.entries.map((r, i) => { const w = tasks[i], active = state?.focused === w.id && !w.minimized; return <Box key={w.id} onClick={() => { menu = null; tooltip = null; act(w.id, 'focus'); }} onMouseEnter={() => { tooltip = { x: r.x, title: w.title }; root.setPointerShape('pointer'); update(); }} onMouseLeave={() => { tooltip = null; root.setPointerShape('default'); update(); }} style={{ position: 'absolute', inset: { left: r.x, top: 4 }, width: r.width, height: r.height, flexShrink: 0, cornerRadius: 6, padding: { left: 9, right: 9 }, alignItems: 'center', gap: 7, overflow: 'hidden', background: verticalGradient(active ? '#4a4263' : '#30405a', active ? '#302b48' : '#1f2c40'), hoverBackground: '#435470', border: { top: [1, active ? '#847499' : '#4a5b76'], bottom: [2, w.minimized ? '#40506b' : active ? T.accent : '#6886a8'] } }}>
         <Box style={{ width: 20, flexShrink: 0 }}><AppGlyph size={14} icon={state!.apps.find(a => a.id === w.app)?.icon ?? '◈'} /></Box>
-        <Text style={{ width: 94, fontSize: T.labelSize, color: w.minimized ? T.muted : T.text, ellipsis: true, wrap: false, selectable: false }}>{taskName(w)}</Text>
+        <Text style={{ width: r.width - 46, fontSize: T.labelSize, color: w.minimized ? T.muted : T.text, ellipsis: true, wrap: false, selectable: false }}>{taskName(w)}</Text>
       </Box>; })}
       {layout.overflow && <Box style={{ position: 'absolute', inset: { left: layout.overflow.x, top: 4 }, width: layout.overflow.width }}><Button label={`+${tasks.length - layout.visible}`} onClick={() => context(layout.overflow!.x, root.info.height - BAR, undefined, true)} /></Box>}
       <Box style={{ position: 'absolute', inset: { left: layout.detach.x, top: 4 }, width: layout.detach.width }}><Button label={layout.compact ? "↗" : "Detach ↗"} onClick={() => finish()} /></Box>
@@ -226,12 +229,12 @@ export function attach(name: string) {
     const w = root.info.width, h = root.info.height;
     return <DesktopFrame width={w} height={h}>
       <Box style={{ position: 'absolute', inset: { left: 0, top: 0 }, width: w, height: h - BAR }} onClick={() => { menu = null; tooltip = null; selectedIcon = null; error = ''; update(); }} />
-      <Text style={{ position: 'absolute', inset: { left: 26, top: 20 }, fontSize: 12, color: '#8292b4', selectable: false }}>Z A T A R A   /   {name}</Text>
+      <Text style={{ position: 'absolute', inset: { left: 26, top: 20 }, fontSize: appearance.desktop.fontSize, color: T.muted, selectable: false }}>Z A T A R A   /   {name}</Text>
       {state?.apps.map((app, index) => <DesktopIcon key={app.id} app={app} index={index} />)}
       {state?.windows.map(w => <AppWindow key={w.id} w={w} />)}
       <Taskbar />
-      {error && <Box style={{ position: 'absolute', inset: { right: 20, bottom: BAR + 18 }, width: Math.min(440, w - 30), padding: 18, background: '#4b2d40', cornerRadius: 10 }} onClick={() => { error = ''; update(); }}><Text style={{ color: '#ffd8e3', fontSize: 13, wrap: true }}>{error}</Text></Box>}
-      {tooltip && !menu && <Box style={{ position: 'absolute', inset: { left: Math.max(0, Math.min(tooltip.x, w - 360)), bottom: BAR + 8 }, width: Math.min(360, w), padding: 10, background: '#2c3952', border: { width: 1, color: '#62718c' }, cornerRadius: 6, overflow: 'hidden' }}><Text style={{ width: Math.min(338, w - 22), fontSize: 13, color: T.text, wrap: true }}>{tooltip.title}</Text></Box>}
+      {(error || configError) && <Box style={{ position: 'absolute', inset: { right: 20, bottom: BAR + 18 }, width: Math.min(440, w - 30), padding: 18, background: '#4b2d40', cornerRadius: 10 }} onClick={() => { error = ''; update(); }}><Text style={{ color: '#ffd8e3', fontSize: 13, wrap: true }}>{error || configError}</Text></Box>}
+      {tooltip && !menu && <Box style={{ position: 'absolute', inset: { left: Math.max(0, Math.min(tooltip.x, w - 360)), bottom: BAR + 8 }, width: Math.min(360, w), padding: 10, background: '#2c3952', border: { width: 1, color: '#62718c' }, cornerRadius: 6, overflow: 'hidden' }}><Text style={{ width: Math.min(338, w - 22), fontSize: T.labelSize, color: T.text, wrap: true }}>{tooltip.title}</Text></Box>}
       <ContextMenu />
     </DesktopFrame>;
   }

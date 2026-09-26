@@ -5,7 +5,9 @@ import { Box, Text as PixelText, TextProps, Input, createRoot, NodeHandle } from
 import { request } from './ipc';
 import { ensure, listSessions, SessionInfo } from './sessions';
 import { TaskInfo } from './tasks';
-import { theme as T, verticalGradient } from './theme';
+import { theme as T, verticalGradient, applyAppearance } from './theme';
+import { watchConfig } from './config';
+let configError = '';
 const mode = process.argv[2] === 'sessions' ? 'sessions' : 'tasks';
 const session = process.env.ZATARA_SESSION ?? path.basename(process.env.ZATARA_HOST ?? '').replace(/-pixel\.sock$/, '');
 let focused = false, notifyFocus = (_: boolean) => {}, font = 0;
@@ -13,7 +15,7 @@ const root = createRoot({ host: { socket: process.env.ZATARA_HOST!, pane: proces
   onFocus(value) { focused = value; notifyFocus(value); }, onResize() { root.render(<Manager />); }, onHostClosed: () => process.exit(0),
 });
 root.setTitle(mode === 'sessions' ? 'Session Manager' : `Task Manager · ${session}`);
-function Text(props: TextProps) { return <PixelText {...props} style={{ font, fontSize: 13, color: T.text, wrap: false, ellipsis: true, selectable: false, ...props.style }} />; }
+function Text(props: TextProps) { return <PixelText {...props} style={{ font, fontSize: T.labelSize, color: T.text, wrap: false, ellipsis: true, selectable: false, ...props.style }} />; }
 function Button({ label, action, danger = false, disabled = false }: { label: string; action(): void; danger?: boolean; disabled?: boolean }) {
   return <Box onClick={() => { if (!disabled) action(); }} style={{ height: 34, padding: { left: 10, right: 10 }, alignItems: 'center', cornerRadius: 6, background: disabled ? '#242e3e' : verticalGradient(danger ? '#733c51' : '#39465f', danger ? '#4c2b3b' : '#26344b'), hoverBackground: disabled ? '#242e3e' : danger ? '#93465c' : '#4b5b78', flexShrink: 0 }}><Text style={{ color: disabled ? '#697a95' : T.text }}>{label}</Text></Box>;
 }
@@ -55,11 +57,11 @@ function Manager() {
     } });
   }
   return <Box style={{ width: '100%', height: '100%', background: '#131c2d', padding: 18, flexDirection: 'column', gap: 8, overflow: 'scroll' }}>
-    <Box style={{ height: 30, alignItems: 'center', flexShrink: 0 }}><Text style={{ fontSize: 22, flexGrow: 1 }}>{mode === 'sessions' ? 'Sessions' : 'Task Manager'}</Text><Button label="Refresh" action={() => void refresh()} /></Box>
+    <Box style={{ height: 30, alignItems: 'center', flexShrink: 0 }}><Text style={{ fontSize: T.labelSize + 9, flexGrow: 1 }}>{mode === 'sessions' ? 'Sessions' : 'Task Manager'}</Text><Button label="Refresh" action={() => void refresh()} /></Box>
     <Text style={{ height: 20, color: T.muted }}>{session} · {working ? 'Working…' : active ? 'Updates every 2 seconds' : 'Updates paused while unfocused'}</Text>
     {mode === 'sessions' && <Box style={{ gap: 8, height: 36, flexShrink: 0 }}>
       <Box style={{ height: 34, alignItems: 'center' }}><Text>Name</Text></Box>
-      <Input value={newName} onChange={setNewName} style={{ flexGrow: 1, flexBasis: 0, minWidth: 60, height: 34, padding: 8, fontSize: 13, color: T.text, background: '#233149', cornerRadius: 6 }} />
+      <Input value={newName} onChange={setNewName} style={{ flexGrow: 1, flexBasis: 0, minWidth: 60, height: 34, padding: 8, fontSize: T.labelSize, color: T.text, background: '#233149', cornerRadius: 6 }} />
       <Button label="Create" action={() => void perform(async () => { if (!newName.trim()) throw new Error('Enter a session name.'); await ensure(newName.trim()); select(newName.trim()); setNotice(`Ready: ${newName.trim()}`); setNewName(''); })} />
     </Box>}
     <Box ref={scroll} contentHeight={rows.length * 44} onScroll={e => { offset.current = e.offset; }} onWheel={e => { offset.current = Math.max(0, Math.min(offset.current + e.deltaY, rows.length * 44 - listHeight)); scroll.current?.scrollTo(offset.current, false); }} style={{ height: listHeight, flexShrink: 0, overflow: 'scroll', flexDirection: 'column', background: '#19263a', cornerRadius: 7 }}>
@@ -75,7 +77,7 @@ function Manager() {
         {!compact && <Text style={{ width: 100, color: T.muted }}>{t.minimized ? 'Minimized' : t.status}</Text>}
       </Box>)}
     </Box>
-    <Text style={{ height: 34, color: T.muted, wrap: true, fontSize: 12 }}>{mode === 'sessions' ? selectedSession ? `PID ${selectedSession.pid} · ${selectedSession.windows} apps · ${selectedSession.name === session ? 'Ending this session also closes this manager.' : 'Switch keeps the current session alive.'}` : 'Select a session. Detached sessions keep their applications running.' : selectedTask ? `Launcher ${selectedTask.pid}${selectedTask.guestPid ? ` · guest ${selectedTask.guestPid}` : ''} · ${selectedTask.processCount} processes · ${selectedTask.status}` : 'Select an app to restore, minimize, or end it.'}</Text>
+    <Text style={{ height: 34, color: T.muted, wrap: true, fontSize: Math.max(10, T.labelSize - 1) }}>{mode === 'sessions' ? selectedSession ? `PID ${selectedSession.pid} · ${selectedSession.windows} apps · ${selectedSession.name === session ? 'Ending this session also closes this manager.' : 'Switch keeps the current session alive.'}` : 'Select a session. Detached sessions keep their applications running.' : selectedTask ? `Launcher ${selectedTask.pid}${selectedTask.guestPid ? ` · guest ${selectedTask.guestPid}` : ''} · ${selectedTask.processCount} processes · ${selectedTask.status}` : 'Select an app to restore, minimize, or end it.'}</Text>
     <Box style={{ gap: 8, height: 34, flexShrink: 0 }}>
       {confirmation ? <><Button label="Cancel" action={() => confirm(null)} /><Button label="Confirm end" danger action={() => void perform(confirmation.run)} /></> : mode === 'sessions' ? <>
         <Button disabled={!selectedSession || selectedSession.name === session || working} label="Switch" action={() => void perform(async () => { if (!selectedSession) throw new Error('Select a session.'); if (selectedSession.name === session) return; if (selectedSession.attached) throw new Error('Detach that session first; it already has an attachment.'); await request(session, { type: 'switch', session: selectedSession.name }); })} />
@@ -87,9 +89,10 @@ function Manager() {
         <Button disabled={!selectedTask || working} label="End app" danger action={() => { if (selectedTask) { const chosen = selectedTask; confirm({ label: `End ${chosen.title}?`, run: async () => { await request(session, { type: 'action', id: chosen.id, op: 'close' }); select(''); } }); } }} />
       </>}
     </Box>
-    <Text style={{ fontSize: 12, color: error ? '#ffb7c7' : confirmation ? '#f9bc75' : T.muted, wrap: true }}>{error || confirmation?.label || notice || (mode === 'tasks' ? 'CPU: one core = 100%. RSS: process-tree sum; shared backends outside the tree are excluded.' : 'End session terminates its apps. Detach preserves them.')}</Text>
+    <Text style={{ fontSize: Math.max(10, T.labelSize - 1), color: (configError || error) ? '#ffb7c7' : confirmation ? '#f9bc75' : T.muted, wrap: true }}>{configError || error || confirmation?.label || notice || (mode === 'tasks' ? 'CPU: one core = 100%. RSS: process-tree sum; shared backends outside the tree are excluded.' : 'End session terminates its apps. Detach preserves them.')}</Text>
   </Box>;
 }
 root.render(<Manager />);
 if (fs.existsSync('/System/Library/Fonts/SFNS.ttf')) void root.registerFont('/System/Library/Fonts/SFNS.ttf').then(value => { font = value; root.render(<Manager />); });
-process.on('SIGTERM', () => { root.stop(); process.exit(0); });
+const stopConfig = watchConfig(next => { applyAppearance(next); root.render(<Manager />); }, message => { if (configError !== message) { configError = message; root.render(<Manager />); } });
+process.on('SIGTERM', () => { stopConfig(); root.stop(); process.exit(0); });

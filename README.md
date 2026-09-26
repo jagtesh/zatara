@@ -150,3 +150,11 @@ Existing session services keep their loaded code and app registry. After a
 build, create a fresh session to get new apps without disturbing existing work:
 `node dist/cli.js attach managers`. End old sessions explicitly when finished.
 See [manager implementation and validation](docs/managers.md).
+
+## Appearance overrides
+
+Edit `~/.config/zatara/config.json` (create it with `node dist/cli.js config init`).
+UI font size, desktop heading size, desktop icon size, and icon label size are
+independent. Changes reload automatically without restarting apps. See the
+[configuration reference](docs/configuration.md) for examples, color overrides,
+validation, and custom paths.

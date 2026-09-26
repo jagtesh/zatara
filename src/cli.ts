@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 import { request } from './ipc';
+import { configPath, initConfig, readConfig } from './config';
 import { ensure, listSessions } from './sessions';
 async function main() {
   const [op = 'attach', name = 'main', arg] = process.argv.slice(2);
+  if (op === 'config') {
+    const command = process.argv[3] ?? 'path';
+    if (command === 'path') console.log(configPath());
+    else if (command === 'init') console.log(initConfig());
+    else if (command === 'check') { readConfig(); console.log(`Valid: ${configPath()}`); }
+    else throw new Error('Use config path, config init, or config check');
+    return;
+  }
   if (op === '_serve') { (await import('./server.js')).serve(name); return; }
-  if (op === '--help' || op === 'help') { console.log('Zatara — a desktop for Pixel apps\n\n  zatara [attach|start] [session]\n  zatara list\n  zatara create [session]\n  zatara detach [session]\n  zatara kill [session]\n  zatara launch <session> <shell|demo|browser|code|sessions|tasks>\n  zatara inspect [session]\n\nCtrl+Alt+D detaches. Closing a window ends its app.\nRun inside Ghostty; for SSH, install and run on the remote host.'); return; }
+  if (op === '--help' || op === 'help') { console.log('Zatara — a desktop for Pixel apps\n\n  zatara [attach|start] [session]\n  zatara config [path|init|check]\n  zatara list\n  zatara create [session]\n  zatara detach [session]\n  zatara kill [session]\n  zatara launch <session> <shell|demo|browser|code|sessions|tasks>\n  zatara inspect [session]\n\nCtrl+Alt+D detaches. Closing a window ends its app.\nRun inside Ghostty; for SSH, install and run on the remote host.'); return; }
   if (op === 'list') {
     for (const s of await listSessions()) console.log(`${s.name}\t${s.attached ? 'attached' : 'detached'}\t${s.windows} windows\tpid ${s.pid}`); return;
   }
