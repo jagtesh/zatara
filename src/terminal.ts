@@ -2,7 +2,7 @@ import { Terminal } from '@xterm/headless';
 import * as pty from 'node-pty';
 import type { EngineKeyEvent } from './pixel';
 import type { WindowInput, CellSize } from './protocol';
-export interface Cell { text: string; fg: string; bg: string; bold: boolean; italic: boolean; underline: boolean }
+export interface Cell { text: string; width?: number; fg: string; bg: string; bold: boolean; italic: boolean; underline: boolean }
 export interface Screen { rows: Cell[][]; cursor: { x: number; y: number }; cols: number; rowCount: number; scroll: number; alternate: boolean }
 const palette = ['#17202e','#f7768e','#9ece6a','#e0af68','#7aa2f7','#bb9af7','#7dcfff','#c0caf5','#565f89','#ff9eaa','#b9f27c','#ffd08a','#a3bdff','#d7b5ff','#a4e8ff','#ffffff'];
 function color(mode: number, value: number, fallback: string) {
@@ -45,10 +45,10 @@ export class Shell {
     for (let y = 0; y < this.term.rows; y++) {
       const line = b.getLine(start + y), cells: Cell[] = [];
       for (let x = 0; x < this.term.cols; x++) {
-        const c = line?.getCell(x); if (!c || c.getWidth() === 0) { cells.push({ text: '', fg: '#c0caf5', bg: '#111827', bold: false, italic: false, underline: false }); continue; }
+        const c = line?.getCell(x); if (!c || c.getWidth() === 0) { cells.push({ text: '', width: 0, fg: '#c0caf5', bg: '#111827', bold: false, italic: false, underline: false }); continue; }
         let fg = color(c.getFgColorMode(), c.getFgColor(), '#c0caf5'), bg = color(c.getBgColorMode(), c.getBgColor(), '#111827');
         if (c.isInverse()) [fg, bg] = [bg, fg];
-        cells.push({ text: c.isInvisible() ? ' ' : c.getChars() || ' ', fg, bg, bold: !!c.isBold(), italic: !!c.isItalic(), underline: !!c.isUnderline() });
+        cells.push({ width: c.getWidth(), text: c.isInvisible() ? ' ' : c.getChars() || ' ', fg, bg, bold: !!c.isBold(), italic: !!c.isItalic(), underline: !!c.isUnderline() });
       }
       rows.push(cells);
     }

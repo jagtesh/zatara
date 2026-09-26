@@ -10,6 +10,7 @@ import { DesktopState, WindowState, action, bounds, contentSize, constrain, focu
 import { lines, sendEvent as send, sessionPath, runtime } from './ipc';
 import { TaskSampler } from './tasks';
 import { Shell, keySequence } from './terminal';
+import { terminalScale, scaleRect } from './display';
 import { Frame, decodeCommand } from './protocol';
 import type { TerminalColors } from './pixel';
 export function serve(name: string) {
@@ -19,7 +20,7 @@ export function serve(name: string) {
   let client: net.Socket | null = null, stopping = false, nextOrder = 0;
   let cell = { width: 8, height: 18 };
   let colors: TerminalColors = { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] };
-  const state: DesktopState = { windows: [], focused: null, width: 1200, height: 800, apps: applications(), session: name, attached: false };
+  const state: DesktopState = { windows: [], focused: null, width: 1200, height: 800, apps: applications(), session: name, attached: false, scale: 1 };
   const shells = new Map<string, Shell>(), guests = new Map<string, Guest>(), children = new Map<string, ChildProcess>(), records = new Map<string, InstanceRecord>();
   const frames = new Map<string, Frame>(), dirtyFrames = new Set<string>(), dirtyShells = new Set<string>();
   const metrics = { startedAt: Date.now(), frames: 0, frameBytes: 0, notifications: 0, coalesced: 0, inputEvents: 0, frameAfterInputMs: [] as number[] };
@@ -37,8 +38,13 @@ export function serve(name: string) {
     dirtyShells.clear();
   }
   function changed() { send(client, { type: 'state', state }); }
+  function setCell(next: { width: number; height: number }) {
+    const nextScale = terminalScale(next.height), ratio = nextScale / (state.scale ?? 1);
+    if (ratio !== 1) for (const w of state.windows) { Object.assign(w, scaleRect(w, ratio)); if (w.restore) w.restore = scaleRect(w.restore, ratio); }
+    state.scale = nextScale; cell = next;
+  }
   function syncWindow(w: WindowState) {
-    const r = bounds(w, state), { width, height } = contentSize(r, cell);
+    const r = bounds(w, state), { width, height } = contentSize(r, cell, state.scale);
     shells.get(w.id)?.resize(Math.floor(width / cell.width), Math.floor(height / cell.height));
     guests.get(w.id)?.send({ type: 'size', width, height, cols: width / cell.width, rows: height / cell.height });
     dirtyShells.add(w.id); dirtyFrames.add(w.id); schedule();
@@ -48,7 +54,7 @@ export function serve(name: string) {
     const w = state.windows.find(w => w.id === guest.pane) ?? state.windows.find(w => w.pid === guest.pid) ?? state.windows.find(w => w.kind === 'pixel' && !guests.has(w.id) && w.status === 'Starting');
     if (!w) { guest.close(); return; }
     guests.set(w.id, guest); w.status = 'Running';
-    const r = bounds(w, state), { width, height } = contentSize(r, cell);
+    const r = bounds(w, state), { width, height } = contentSize(r, cell, state.scale);
     guest.send({ type: 'init', width, height, cols: width / cell.width, rows: height / cell.height, colors, focused: !!client && state.focused === w.id });
     guest.onFrame = frame => {
       try {
@@ -78,7 +84,7 @@ export function serve(name: string) {
     if (!app.available) throw new Error(app.reason);
     if (state.windows.length >= 24) throw new Error('This proof of concept supports up to 24 windows');
     const id = randomUUID().slice(0, 8), n = state.windows.length;
-    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: app.initialSize?.width ?? 680, height: app.initialSize?.height ?? 450 }, state.width, state.height) };
+    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain(scaleRect({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: app.initialSize?.width ?? 680, height: app.initialSize?.height ?? 450 }, state.scale ?? 1), state.width, state.height, state.scale) };
     w.order = nextOrder++;
     state.windows.push(w); focus(state, id);
     if (app.kind === 'shell') {
@@ -118,9 +124,9 @@ export function serve(name: string) {
         if (client && client !== socket) { send(socket, { type: 'error', error: 'Session already attached. Use zatara detach first.' }); socket.end(); return; }
         client = socket; state.attached = true;
         if (m.width && m.height) { state.width = m.width; state.height = m.height; }
-        if (m.cell) cell = m.cell;
+        if (m.cell) setCell(m.cell);
         if (m.colors) colors = m.colors;
-        for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height)); syncWindow(w); }
+        for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height, state.scale)); syncWindow(w); }
         syncFocus(); changed(); schedule(); return;
       }
       if (m.type === 'list' || m.type === 'inspect') { send(socket, { type: 'state', state, metrics, pid: process.pid, rendering: { cell, surfaces: Object.fromEntries([...frames].map(([id, f]) => [id, { width: f.width, height: f.height, seq: f.seq }])) } }); return; }
@@ -143,8 +149,9 @@ export function serve(name: string) {
       }
       if (m.type === 'resize') {
         if (socket !== client) return;
+        if (m.cell) setCell(m.cell);
         state.width = Math.max(120, Math.min(8000, m.width)); state.height = Math.max(140, Math.min(8000, m.height));
-        for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height)); syncWindow(w); } changed(); return;
+        for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height, state.scale)); syncWindow(w); } changed(); return;
       }
       if (m.type === 'screen') { send(socket, { type: 'screen', id: m.id, screen: shells.get(m.id)?.snapshot() }); return; }
       if (m.type === 'input') {

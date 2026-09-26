@@ -10,7 +10,7 @@ export type WindowInput = Extract<GuestMessage, { type: 'key' | 'paste' | 'mouse
 export type ActionCommand = { type: 'action'; id: string } & WindowAction;
 export type ClientCommand =
   | { type: 'attach'; width: number; height: number; cell?: CellSize; colors?: TerminalColors }
-  | { type: 'resize'; width: number; height: number }
+  | { type: 'resize'; width: number; height: number; cell?: CellSize }
   | { type: 'list' | 'inspect' | 'tasks' | 'detach' | 'kill' }
   | { type: 'switch'; session: string }
   | { type: 'launch'; app: string }
@@ -86,7 +86,7 @@ export function decodeCommand(value: unknown): ClientCommand {
       if (!Array.isArray(colors.palette)) throw new Error('Invalid terminal palette'); colors.palette.forEach(rgba);
       break;
     }
-    case 'resize': dimensions(m); break;
+    case 'resize': dimensions(m); if (m.cell !== undefined) dimensions(record(m.cell)); break;
     case 'list': case 'inspect': case 'tasks': case 'detach': case 'kill': break;
     case 'switch': string(m.session); break;
     case 'launch': string(m.app); break;

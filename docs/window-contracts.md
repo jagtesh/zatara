@@ -73,9 +73,14 @@ and screen content come from the trusted same-user service, not a sandboxed or
 independently versioned network API. Wire assertions stay in `protocol.ts` and
 the RPC response boundary; ordinary callers use typed values.
 
-The message format remains compatible with the previous service for valid
-commands. Updated native app setup and desktop frames load when their processes
-next start. Existing apps and sessions are not terminated by this refactor.
+UI components and app viewports use logical units through `pixel.ts`; window
+state on the service wire and guest frame buffers use physical pixels. Convert
+only at `display.ts` boundaries. The service records `scale` and scales frame
+decorations, default geometry and maximized bounds consistently.
+
+Display scaling requires an updated service, attachment, and built-in guest
+processes. Start a new session after upgrading to try it without terminating
+existing apps. Existing service code is not hot-reloaded by an attachment.
 
 ## Checks
 

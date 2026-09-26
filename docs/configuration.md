@@ -27,7 +27,11 @@ For larger desktop icons and labels, independently of ordinary UI text:
 ```
 
 Only specify settings you want to override. Missing settings use defaults.
-Values are in Pixel rendering pixels; these are not terminal cell sizes.
+Values are logical UI units at an 18-pixel terminal cell height. Zatara scales
+all UI lengths by the reported terminal cell height divided by 18; for example,
+34-pixel cells use about 1.89x. Fonts, icons, spacing and mouse targets grow
+together. Guest surfaces remain native-resolution pixels. These settings are
+independent of shell character columns.
 
 | Setting | Default | Range / meaning |
 | --- | ---: | --- |

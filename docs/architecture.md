@@ -79,3 +79,10 @@ root (`AppWindowDefinition` / `runAppWindow`), desktop frame (`WindowFrameProps`
 and action, frame, input and IPC types. Demo and manager apps share lifecycle
 setup; all window kinds share decorations and content input mapping. Compiler
 contract tests are part of `npm run check` and `npm test`.
+
+## Terminal-relative display scale
+
+`src/pixel.ts` now wraps native UI components and root metrics in logical units;
+`src/display.ts` converts physical session geometry and pointer events at the
+attachment boundary. See [display scaling](display-scaling.md) for diagnosis,
+validation, upgrade requirements and the measured cost of exact shell cells.

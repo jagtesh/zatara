@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import fs from 'node:fs';
 import net from 'node:net';
-import { Box, Text as PixelText, TextProps, createRoot, PixelRoot, Surface, PointerEvent, BoxProps, TextSpan, NodeHandle } from './pixel';
+import { Box, Text as PixelText, TextProps, createRoot, PixelRoot, Surface, PointerEvent, BoxProps, NodeHandle, displayScale } from './pixel';
 import { DesktopState, WindowState, WindowAction, bounds, BAR, TITLE, action as reduce } from './model';
 import { Desktop as DesktopFrame, Taskbar as BarFrame, DesktopIcon as IconFrame, AppGlyph } from './primitives';
+import { logicalState, physicalCommand } from './display';
 import { WindowFrame } from './window-frame';
 import { flattenGuestFrame } from './pixel-frame';
+import { ShellViewport } from './shell-view';
 import { Screen } from './terminal';
 import { lines, sendCommand as send, sessionPath } from './ipc';
 import { theme as T, verticalGradient, applyAppearance } from './theme';
@@ -26,7 +28,7 @@ export function attach(name: string) {
   let tooltip: { x: number; title: string } | null = null;
   const ordered = () => [...(state?.windows ?? [])].sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
   const taskName = (w: WindowState) => { const peers = ordered().filter(p => p.app === w.app); return (state?.apps.find(a => a.id === w.app)?.name ?? w.app) + (peers.length > 1 ? ` ${peers.findIndex(p => p.id === w.id) + 1}` : ''); };
-  const command = (m: ClientCommand) => send(socket, m);
+  const command = (m: ClientCommand) => send(socket, physicalCommand(m, displayScale()));
   const act = (id: string, action: WindowAction) => {
     if (state) reduce(state, id, action);
     command({ type: 'action', id, ...action }); update();
@@ -69,7 +71,7 @@ export function attach(name: string) {
         if (w) { if (y < bounds(w, state).y + TITLE) context(x, y, w.id); return; }
         context(x, y);
       },
-      onResize(size) { tooltip = null; command({ type: 'resize', ...size }); update(); },
+      onResize(size) { tooltip = null; command({ type: 'resize', ...size, cell: { width: root.info.cellWidth, height: root.info.cellHeight } }); update(); },
       onEngineExit(e) { if (e) process.stderr.write(e + '\n'); finish(e ? 1 : 0); },
       onHostClosed: () => finish(),
     });
@@ -85,7 +87,7 @@ export function attach(name: string) {
   function receive(m: ServerMessage) {
     if (m.type === 'switch') { void switchSession(m.session); return; }
     if (m.type === 'state') {
-      state = m.state;
+      state = logicalState(m.state, displayScale());
       for (const [id, surface] of surfaces) if (!state!.windows.some(w => w.id === id)) { surface.close(); surfaces.delete(id); screens.delete(id); frames.delete(id); }
     }
     if (m.type === 'screen' && m.screen) screens.set(m.id, m.screen);
@@ -103,7 +105,7 @@ export function attach(name: string) {
         const candidate = net.connect(sessionPath(target));
         let adopted = false;
         const timeout = setTimeout(() => { candidate.destroy(); reject(new Error('Session switch timed out')); }, 4000);
-        candidate.on('connect', () => send(candidate, { type: 'attach', width: root.info.width, height: root.info.height, cell: { width: root.info.cellWidth, height: root.info.cellHeight }, colors: root.info.colors }));
+        candidate.on('connect', () => send(candidate, physicalCommand({ type: 'attach', width: root.info.width, height: root.info.height, cell: { width: root.info.cellWidth, height: root.info.cellHeight }, colors: root.info.colors }, displayScale())));
         candidate.on('error', e => { if (!adopted) { clearTimeout(timeout); reject(e); } });
         candidate.on('close', () => { clearTimeout(timeout); if (adopted && socket === candidate) finish(); else if (!adopted) reject(new Error('Session connection closed')); });
         lines(candidate, decodeMessage, m => {
@@ -135,18 +137,7 @@ export function attach(name: string) {
   }
 
   function ShellView({ w, width, height }: { w: WindowState; width: number; height: number }) {
-    const screen = screens.get(w.id), cw = root.info.cellWidth, ch = root.info.cellHeight;
-    return <Box style={{ width, height, background: '#111827', overflow: 'hidden', flexDirection: 'column' }} {...contentInput(w)}>
-      {screen?.rows.map((cells, y) => {
-        let text = '', spans: TextSpan[] = [], byte = 0;
-        for (const c of cells) {
-          if (!c.text) continue;
-          const n = Buffer.byteLength(c.text); spans.push({ start: byte, end: byte + n, color: c.fg, background: c.bg, bold: c.bold, italic: c.italic, underline: c.underline }); text += c.text; byte += n;
-        }
-        return <Text key={y} spans={spans} style={{ position: 'absolute', inset: { left: 0, top: y * ch }, height: ch, width, font: 0, fontSize: root.info.basePx, color: '#c0caf5', wrap: false, selectable: false }}>{text}</Text>;
-      })}
-      {screen && state?.focused === w.id && screen.cursor.y >= 0 && <Box style={{ position: 'absolute', inset: { left: screen.cursor.x * cw, top: screen.cursor.y * ch }, width: cw, height: ch, background: '#a78bfa55', border: { bottom: [2, '#c4b5fd'] } }} />}
-    </Box>;
+    return <ShellViewport screen={screens.get(w.id)} focused={state?.focused === w.id} width={width} height={height} cellWidth={root.info.cellWidth} cellHeight={root.info.cellHeight} fontSize={root.info.basePx} input={contentInput(w)} />;
   }
   function contentInput(w: WindowState): Pick<BoxProps, 'onPointer' | 'onMouseMove' | 'onWheel'> {
     return {

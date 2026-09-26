@@ -16,7 +16,7 @@ export function rpc(socket: string, message: any): Promise<any> {
 export class Harness {
   dir = fs.mkdtempSync('/tmp/zt-');
   socket = path.join(this.dir, 'test.sock');
-  owner = new OwnerServer(path.join(this.dir, 'display.sock'), () => ({ width: 8, height: 18 }));
+  owner = new OwnerServer(path.join(this.dir, 'display.sock'), () => this.cell);
   server: ChildProcess;
   desktop?: ChildProcess;
   guest?: Guest;
@@ -24,13 +24,15 @@ export class Harness {
   private closing = false;
   events = new EventEmitter();
   frameTimes: number[] = [];
+  cell = { width: 8, height: 18 };
   width = 1200; height = 800; frames = 0; bytes = 0;
-  constructor(private options: { width?: number; height?: number; scale?: number; env?: NodeJS.ProcessEnv } = {}) {
+  constructor(private options: { width?: number; height?: number; scale?: number; cli?: string; cell?: { width: number; height: number }; env?: NodeJS.ProcessEnv } = {}) {
+    this.cell = options.cell ?? this.cell;
     this.width = options.width ?? 1200; this.height = options.height ?? 800;
-    this.owner.onJoin = guest => { this.guest = guest; guest.send({ type: 'init', width: this.width, height: this.height, cols: this.width / 8, rows: Math.floor(this.height / 18), focused: true, colors: { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] } }); guest.onFrame = f => { try { if (this.closing) return; this.bgra = fs.readFileSync(f.path); this.width = f.width; this.height = f.height; this.frames++; this.bytes += this.bgra.length; this.frameTimes.push(performance.now()); this.events.emit('frame'); } finally { f.ack(); } }; };
+    this.owner.onJoin = guest => { this.guest = guest; guest.send({ type: 'init', width: this.width, height: this.height, cols: Math.floor(this.width / this.cell.width), rows: Math.floor(this.height / this.cell.height), focused: true, colors: { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] } }); guest.onFrame = f => { try { if (this.closing) return; this.bgra = fs.readFileSync(f.path); this.width = f.width; this.height = f.height; this.frames++; this.bytes += this.bgra.length; this.frameTimes.push(performance.now()); this.events.emit('frame'); } finally { f.ack(); } }; };
     this.server = this.run(['_serve', 'test']);
   }
-  run(args: string[], extra = {}) { const fd = fs.openSync(path.join(this.dir, args[0] + '.log'), 'a'); const child = spawn(process.execPath, ['dist/cli.js', ...args], { env: { ...process.env, PIXEL_DISPLAY_SCALE: String(this.options.scale ?? 1), ZATARA_RUNTIME: this.dir, ...this.options.env, ...extra }, stdio: ['ignore', fd, fd] }); fs.closeSync(fd); return child; }
+  run(args: string[], extra = {}) { const fd = fs.openSync(path.join(this.dir, args[0] + '.log'), 'a'); const child = spawn(process.execPath, [this.options.cli ?? 'dist/cli.js', ...args], { env: { ...process.env, PIXEL_DISPLAY_SCALE: String(this.options.scale ?? 1), ZATARA_RUNTIME: this.dir, ...this.options.env, ...extra }, stdio: ['ignore', fd, fd] }); fs.closeSync(fd); return child; }
   async ready() { await until(() => fs.existsSync(this.socket)); }
   async attach() { this.guest = undefined; this.desktop = this.run(['attach', 'test'], { ZATARA_TRACE: '1', ZATARA_TEST_HOST: path.join(this.dir, 'display.sock') }); await until(() => this.guest); await until(() => this.bgra); await delay(200); }
   request(m: any) { return rpc(this.socket, m); }
