@@ -113,3 +113,40 @@ uses a compact shaded taskbar, bordered headers, rounded corners, and no shadows
 See [polish results](docs/polish-results.md) for captures, rendering fixes, and
 measurement limits. Reproduce the native viewport captures after building with
 `npx tsx scripts/polish-captures.ts`.
+
+## Session Manager and Task Manager
+
+To terminate a session and its applications:
+
+```sh
+node dist/cli.js list
+node dist/cli.js kill main       # substitute the session you want to end
+```
+
+Use `detach` to preserve applications instead. `create <name>` starts an empty,
+detached session without requiring a terminal attachment.
+
+Double-click **Sessions** or **Task Manager** on the desktop, or launch them:
+
+```sh
+node dist/cli.js launch main sessions
+node dist/cli.js launch main tasks
+```
+
+Both are independent native Pixel applications. Sessions lists this host's
+sessions, creates new ones, switches the current desktop, detaches attachments,
+and ends sessions after an in-app confirmation. Switching preserves the old
+session and refuses to take over a destination that already has an attachment.
+
+Task Manager shows this session's apps, status, launcher/guest PIDs, process
+count, RSS, and sampled CPU. Select an app to restore, minimize, or end it.
+Ending an app uses the normal window-close path, with confirmation. CPU uses
+100% per core; RSS sums may double-count shared memory. Shared backends outside
+the app's process tree are excluded. It is an application manager, not a list
+of every OS process. Both managers refresh every two seconds while focused and
+pause automatic refresh when unfocused; Refresh is always available.
+
+Existing session services keep their loaded code and app registry. After a
+build, create a fresh session to get new apps without disturbing existing work:
+`node dist/cli.js attach managers`. End old sessions explicitly when finished.
+See [manager implementation and validation](docs/managers.md).

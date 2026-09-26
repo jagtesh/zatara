@@ -21,12 +21,13 @@ export class Harness {
   desktop?: ChildProcess;
   guest?: Guest;
   bgra?: Buffer;
+  private closing = false;
   events = new EventEmitter();
   frameTimes: number[] = [];
   width = 1200; height = 800; frames = 0; bytes = 0;
   constructor(private options: { width?: number; height?: number; scale?: number; env?: NodeJS.ProcessEnv } = {}) {
     this.width = options.width ?? 1200; this.height = options.height ?? 800;
-    this.owner.onJoin = guest => { this.guest = guest; guest.send({ type: 'init', width: this.width, height: this.height, cols: this.width / 8, rows: Math.floor(this.height / 18), focused: true, colors: { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] } }); guest.onFrame = f => { try { this.bgra = fs.readFileSync(f.path); this.width = f.width; this.height = f.height; this.frames++; this.bytes += this.bgra.length; this.frameTimes.push(performance.now()); this.events.emit('frame'); } finally { f.ack(); } }; };
+    this.owner.onJoin = guest => { this.guest = guest; guest.send({ type: 'init', width: this.width, height: this.height, cols: this.width / 8, rows: Math.floor(this.height / 18), focused: true, colors: { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] } }); guest.onFrame = f => { try { if (this.closing) return; this.bgra = fs.readFileSync(f.path); this.width = f.width; this.height = f.height; this.frames++; this.bytes += this.bgra.length; this.frameTimes.push(performance.now()); this.events.emit('frame'); } finally { f.ack(); } }; };
     this.server = this.run(['_serve', 'test']);
   }
   run(args: string[], extra = {}) { const fd = fs.openSync(path.join(this.dir, args[0] + '.log'), 'a'); const child = spawn(process.execPath, ['dist/cli.js', ...args], { env: { ...process.env, PIXEL_DISPLAY_SCALE: String(this.options.scale ?? 1), ZATARA_RUNTIME: this.dir, ...this.options.env, ...extra }, stdio: ['ignore', fd, fd] }); fs.closeSync(fd); return child; }
@@ -38,5 +39,5 @@ export class Harness {
   mouse(kind: string, x: number, y: number, button = 'left') { this.guest!.send({ type: 'mouse', kind, x, y, button, mods: { ctrl: false, alt: false, shift: false, super: false } } as any); }
   async drag(x: number, y: number, dx: number, dy: number) { this.mouse('down', x, y); await delay(40); for (let i = 1; i <= 12; i++) { this.mouse('move', x + dx * i / 12, y + dy * i / 12); await delay(20); } this.mouse('up', x + dx, y + dy); await delay(150); }
   save(file: string) { if (!this.bgra) throw new Error('No frame'); const png = new PNG({ width: this.width, height: this.height }); for (let i = 0; i < this.bgra.length; i += 4) { png.data[i] = this.bgra[i+2]; png.data[i+1] = this.bgra[i+1]; png.data[i+2] = this.bgra[i]; png.data[i+3] = this.bgra[i+3]; } fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, PNG.sync.write(png)); }
-  async close() { this.desktop?.kill(); try { await this.request({ type: 'kill' }); } catch {} this.owner.stop(); this.server.kill(); }
+  async close() { this.closing = true; this.desktop?.kill(); try { await this.request({ type: 'kill' }); } catch {} this.owner.stop(); this.server.kill(); }
 }

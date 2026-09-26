@@ -26,13 +26,13 @@ export function send(socket: net.Socket | null, message: unknown) {
   if (socket.writableLength > 2 * 1024 * 1024) { socket.destroy(); return false; }
   return socket.write(JSON.stringify(message) + '\n');
 }
-export function request(name: string, message: unknown): Promise<any> {
+export function request(name: string, message: unknown, timeoutMs = 4000): Promise<any> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(sessionPath(name));
-    const timeout = setTimeout(() => socket.destroy(new Error('Session request timed out')), 4000);
+    const timeout = setTimeout(() => socket.destroy(new Error('Session request timed out')), timeoutMs);
     socket.on('connect', () => send(socket, message));
     socket.on('error', reject);
-    socket.on('close', () => clearTimeout(timeout));
+    socket.on('close', () => { clearTimeout(timeout); reject(new Error('Session connection closed')); });
     lines(socket, response => { socket.end(); response.type === 'error' ? reject(new Error(response.error)) : resolve(response); });
   });
 }

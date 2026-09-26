@@ -14,7 +14,9 @@ function Text(props: TextProps) { return <PixelText {...props} style={{ font: ui
 type Frame = { path: string; width: number; height: number; seq: number };
 type Menu = { x: number; y: number; id?: string; overflow?: boolean };
 export function attach(name: string) {
-  const socket = net.connect(sessionPath(name));
+  let socket = net.connect(sessionPath(name));
+  const initialSocket = socket;
+  let switching = false;
   let root: PixelRoot, update = () => {}, state: DesktopState | null = null, error = '', closed = false;
   const screens = new Map<string, Screen>(), frames = new Map<string, Frame>(), surfaces = new Map<string, Surface>();
   let menu: Menu | null = null, selectedIcon: string | null = null;
@@ -73,9 +75,11 @@ export function attach(name: string) {
     root.render(<Desktop />);
     if (fs.existsSync('/System/Library/Fonts/SFNS.ttf')) void root.registerFont('/System/Library/Fonts/SFNS.ttf').then(font => { uiFont = font; update(); });
   });
-  socket.on('error', e => { process.stderr.write(e.message + '\n'); finish(1); });
-  socket.on('close', () => finish());
-  lines(socket, m => {
+  initialSocket.on('error', e => { if (socket === initialSocket) { process.stderr.write(e.message + '\n'); finish(1); } });
+  initialSocket.on('close', () => { if (socket === initialSocket) finish(); });
+  lines(initialSocket, m => { if (socket === initialSocket) receive(m); });
+  function receive(m: any) {
+    if (m.type === 'switch') { void switchSession(m.session); return; }
     if (m.type === 'state') {
       state = m.state;
       for (const [id, surface] of surfaces) if (!state!.windows.some(w => w.id === id)) { surface.close(); surfaces.delete(id); screens.delete(id); frames.delete(id); }
@@ -86,7 +90,35 @@ export function attach(name: string) {
     if (m.type === 'clipboard') root?.setClipboard(m.text);
     if (m.type === 'pointer') root?.setPointerShape(m.shape);
     update();
-  });
+  }
+  async function switchSession(target: string) {
+    if (switching || target === name) return;
+    switching = true;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const candidate = net.connect(sessionPath(target));
+        let adopted = false;
+        const timeout = setTimeout(() => { candidate.destroy(); reject(new Error('Session switch timed out')); }, 4000);
+        candidate.on('connect', () => send(candidate, { type: 'attach', width: root.info.width, height: root.info.height, cell: { width: root.info.cellWidth, height: root.info.cellHeight }, colors: root.info.colors }));
+        candidate.on('error', e => { if (!adopted) { clearTimeout(timeout); reject(e); } });
+        candidate.on('close', () => { clearTimeout(timeout); if (adopted && socket === candidate) finish(); else if (!adopted) reject(new Error('Session connection closed')); });
+        lines(candidate, m => {
+          if (!adopted) {
+            if (m.type === 'error') { candidate.destroy(); reject(new Error(m.error)); return; }
+            if (m.type !== 'state') return;
+            clearTimeout(timeout); adopted = true;
+            const previous = socket; socket = candidate; name = target;
+            menu = null; tooltip = null; error = ''; selectedIcon = null;
+            screens.clear(); frames.clear();
+            root.setTitle(`Zatara · ${name}`);
+            previous.end(); resolve();
+          }
+          if (socket === candidate) receive(m);
+        });
+      });
+    } catch (e) { error = `Cannot switch to ${target}: ${e instanceof Error ? e.message : String(e)}`; update(); }
+    finally { switching = false; }
+  }
   process.on('SIGTERM', () => finish()); process.on('SIGHUP', () => finish());
   process.on('SIGWINCH', () => root?.nudgeResize());
 

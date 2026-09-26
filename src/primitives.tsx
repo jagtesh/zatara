@@ -4,6 +4,7 @@ import { theme as T, verticalGradient } from './theme';
 import { Rect, BAR, TITLE } from './model';
 
 export function AppGlyph({ icon, size = 20, color = T.accent }: { icon: string; size?: number; color?: string }) {
+  if (icon === '▤' || icon === '▥') return <Box style={{ width: size, height: size, flexShrink: 0, border: { width: 1, color }, cornerRadius: 3, padding: 3, gap: 2, flexDirection: icon === '▤' ? 'column' : 'row', alignItems: icon === '▤' ? 'stretch' : 'end', justifyContent: 'center' }}>{[0, 1, 2].map(i => <Box key={i} style={{ width: icon === '▤' ? '100%' : Math.max(1, size / 7), height: icon === '▤' ? Math.max(1, size / 12) : size * (0.25 + i * 0.15), background: color }} />)}</Box>;
   if (icon === '◎') return <Box style={{ width: size, height: size, flexShrink: 0, cornerRadius: size / 2, border: { width: 1, color }, alignItems: 'center', justifyContent: 'center' }}>
     <Box style={{ width: size * 0.4, height: size, cornerRadius: size / 2, border: { width: 1, color } }} />
     <Box style={{ position: 'absolute', inset: { left: 0, top: size / 2 }, width: size, height: 1, background: color }} />

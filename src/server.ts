@@ -8,6 +8,7 @@ import { InstanceRecord, PROTOCOL } from '../node_modules/@zenbu-labs/pixel/dist
 import { applications } from './apps';
 import { DesktopState, WindowState, action, bounds, contentSize, constrain, focus } from './model';
 import { lines, send, sessionPath, runtime } from './ipc';
+import { TaskSampler } from './tasks';
 import { Shell, keySequence } from './terminal';
 type Frame = { path: string; width: number; height: number; seq: number };
 export function serve(name: string) {
@@ -21,6 +22,7 @@ export function serve(name: string) {
   const frames = new Map<string, Frame>(), dirtyFrames = new Set<string>(), dirtyShells = new Set<string>();
   const metrics = { startedAt: Date.now(), frames: 0, frameBytes: 0, notifications: 0, coalesced: 0, inputEvents: 0, frameAfterInputMs: [] as number[] };
   const inputAt = new Map<string, number>();
+  const taskSampler = new TaskSampler();
   const owner = new OwnerServer(guestSocket, () => cell);
   let timer: NodeJS.Timeout | null = null;
   function schedule() { if (!timer && client) timer = setTimeout(flush, 16); }
@@ -74,7 +76,7 @@ export function serve(name: string) {
     if (!app.available) throw new Error(app.reason);
     if (state.windows.length >= 24) throw new Error('This proof of concept supports up to 24 windows');
     const id = randomUUID().slice(0, 8), n = state.windows.length;
-    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: 680, height: 450 }, state.width, state.height) };
+    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: ['sessions', 'tasks'].includes(app.id) ? 820 : 680, height: ['sessions', 'tasks'].includes(app.id) ? 540 : 450 }, state.width, state.height) };
     w.order = nextOrder++;
     state.windows.push(w); focus(state, id);
     if (app.kind === 'shell') {
@@ -90,7 +92,7 @@ export function serve(name: string) {
       const codeRoot = path.resolve(app.command[0], '../..');
       const appEnv = app.id === 'code' ? { TODE_TERMINAL_BROWSER_BIN: path.join(__dirname, 'code-host.js'),
         ...(fs.existsSync(path.join(codeRoot, 'dist/main.js')) ? { TODE_INSTALL_ROOT: codeRoot } : {}) } : {};
-      const child = spawn(app.command[0], app.command.slice(1), { detached: true, stdio: ['ignore', log, log], env: { ...process.env, ...appEnv, ZATARA_NODE: process.execPath, PIXEL_TTY: tty, PIXEL_PANE: id, ZATARA_HOST: guestSocket, ZATARA_PANE: id, NODE_ENV: 'production' } });
+      const child = spawn(app.command[0], app.command.slice(1), { detached: true, stdio: ['ignore', log, log], env: { ...process.env, ...appEnv, ZATARA_NODE: process.execPath, ZATARA_SESSION: name, PIXEL_TTY: tty, PIXEL_PANE: id, ZATARA_HOST: guestSocket, ZATARA_PANE: id, NODE_ENV: 'production' } });
       fs.closeSync(log); children.set(id, child); w.pid = child.pid ?? 0;
       child.on('error', e => { w.status = e.message; changed(); });
       child.on('exit', code => { if (!guests.has(id)) { w.status = `Launcher exited (${code}); no compatible Pixel guest`; changed(); } });
@@ -120,6 +122,14 @@ export function serve(name: string) {
         syncFocus(); changed(); schedule(); return;
       }
       if (m.type === 'list' || m.type === 'inspect') { send(socket, { type: 'state', state, metrics, pid: process.pid, rendering: { cell, surfaces: Object.fromEntries([...frames].map(([id, f]) => [id, { width: f.width, height: f.height, seq: f.seq }])) } }); return; }
+      if (m.type === 'tasks') {
+        void taskSampler.sample(state.windows.map(w => { const child = children.get(w.id), guestPid = guests.get(w.id)?.pid; return { ...w, guestPid, rootPids: [w.kind === 'shell' && w.status === 'Running' ? w.pid : 0, child && child.exitCode === null && child.signalCode === null ? child.pid ?? 0 : 0, guestPid ?? 0] }; })).then(tasks => send(socket, { type: 'tasks', tasks, servicePid: process.pid }), e => send(socket, { type: 'error', error: String(e) })); return;
+      }
+      if (m.type === 'switch') {
+        sessionPath(m.session);
+        if (!client) throw new Error('This session has no desktop attachment to switch');
+        send(client, { type: 'switch', session: m.session }); send(socket, { type: 'ok' }); return;
+      }
       if (m.type === 'detach') { client?.end(); client = null; state.attached = false; syncFocus(); send(socket, { type: 'ok' }); return; }
       if (m.type === 'kill') { send(socket, { type: 'ok' }); setTimeout(stop, 30); return; }
       if (m.type === 'launch') { send(socket, { type: 'launched', id: launch(m.app) }); return; }

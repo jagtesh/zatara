@@ -13,6 +13,8 @@ export function applications(): AppDefinition[] {
     { id: 'demo', name: 'Pixel Studio', icon: '◈', kind: 'pixel', command: [process.execPath, path.join(__dirname, 'demo.js')], available: true },
     { id: 'browser', name: 'Browser', icon: '◎', kind: 'pixel', command: [process.env.ZATARA_BROWSER ?? (fs.existsSync(bundledBrowser) ? bundledBrowser : 'terminal-browser'), 'open', process.env.ZATARA_BROWSER_URL ?? 'https://terminal-browser.com'] },
     { id: 'code', name: 'Code', icon: '</>', kind: 'pixel', command: [process.env.ZATARA_CODE ?? (fs.existsSync(bundledCode) ? bundledCode : executable('tode') ?? 'terminal-code')] },
+    { id: 'sessions', name: 'Sessions', icon: '▤', kind: 'pixel', command: [process.execPath, path.join(__dirname, 'manager.js'), 'sessions'], available: true },
+    { id: 'tasks', name: 'Task Manager', icon: '▥', kind: 'pixel', command: [process.execPath, path.join(__dirname, 'manager.js'), 'tasks'], available: true },
   ];
   if (process.env.ZATARA_APPS) {
     const custom = JSON.parse(fs.readFileSync(process.env.ZATARA_APPS, 'utf8'));
