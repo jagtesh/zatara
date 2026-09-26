@@ -1,4 +1,4 @@
-export const BAR = 58;
+export const BAR = 44;
 export const TITLE = 36;
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface AppDefinition { id: string; name: string; icon: string; command: string[]; kind: 'shell' | 'pixel'; available?: boolean; reason?: string }
@@ -39,4 +39,9 @@ export function action(s: DesktopState, id: string, op: string, rect?: Rect) {
   }
   if (op === 'minimize') { w.minimized = true; if (s.focused === id) s.focused = [...s.windows].reverse().find(w => !w.minimized)?.id ?? null; }
   if (op === 'close') { s.windows = s.windows.filter(w => w.id !== id); if (s.focused === id) s.focused = [...s.windows].reverse().find(w => !w.minimized)?.id ?? null; }
+}
+
+/** Pixel guests and shells share a cell-aligned viewport; decoration is outside it. */
+export function contentSize(r: Rect, cell: { width: number; height: number }) {
+  return { width: Math.max(cell.width, Math.floor((r.width - 4) / cell.width) * cell.width), height: Math.max(cell.height, Math.floor((r.height - TITLE - 4) / cell.height) * cell.height) };
 }

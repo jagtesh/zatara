@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { menuRect } from '../src/layout';
 import { Harness, delay, until } from '../scripts/harness';
 test('real PTYs, Pixel guests, mouse windows and abrupt reconnect', { timeout: 40000 }, async () => {
   const h = new Harness();
@@ -50,7 +51,7 @@ test('real PTYs, Pixel guests, mouse windows and abrupt reconnect', { timeout: 4
     assert.equal(current.maximized, false);
     // Open the title-bar menu, then choose Minimize using native pointer events.
     await h.click(current.x + 130, current.y + 18, 'right');
-    await h.click(current.x + 165, Math.min(current.y + 18, h.height - 258) + 22);
+    await h.click(current.x + 165, menuRect(current.x + 130, current.y + 18, h.width, h.height, 3).y + 22);
     assert.equal((await h.request({ type: 'inspect' })).state.windows.find((w: any) => w.id === second).minimized, true);
     assert.equal((await h.request({ type: 'inspect' })).state.windows.find((w: any) => w.id === second).pid, moved.pid);
     await h.click(450, h.height - 30);

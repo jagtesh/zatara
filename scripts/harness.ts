@@ -24,11 +24,12 @@ export class Harness {
   events = new EventEmitter();
   frameTimes: number[] = [];
   width = 1200; height = 800; frames = 0; bytes = 0;
-  constructor() {
+  constructor(private options: { width?: number; height?: number; scale?: number; env?: NodeJS.ProcessEnv } = {}) {
+    this.width = options.width ?? 1200; this.height = options.height ?? 800;
     this.owner.onJoin = guest => { this.guest = guest; guest.send({ type: 'init', width: this.width, height: this.height, cols: this.width / 8, rows: Math.floor(this.height / 18), focused: true, colors: { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] } }); guest.onFrame = f => { try { this.bgra = fs.readFileSync(f.path); this.width = f.width; this.height = f.height; this.frames++; this.bytes += this.bgra.length; this.frameTimes.push(performance.now()); this.events.emit('frame'); } finally { f.ack(); } }; };
     this.server = this.run(['_serve', 'test']);
   }
-  run(args: string[], extra = {}) { const fd = fs.openSync(path.join(this.dir, args[0] + '.log'), 'a'); const child = spawn(process.execPath, ['dist/cli.js', ...args], { env: { ...process.env, PIXEL_DISPLAY_SCALE: '1', ZATARA_RUNTIME: this.dir, ...extra }, stdio: ['ignore', fd, fd] }); fs.closeSync(fd); return child; }
+  run(args: string[], extra = {}) { const fd = fs.openSync(path.join(this.dir, args[0] + '.log'), 'a'); const child = spawn(process.execPath, ['dist/cli.js', ...args], { env: { ...process.env, PIXEL_DISPLAY_SCALE: String(this.options.scale ?? 1), ZATARA_RUNTIME: this.dir, ...this.options.env, ...extra }, stdio: ['ignore', fd, fd] }); fs.closeSync(fd); return child; }
   async ready() { await until(() => fs.existsSync(this.socket)); }
   async attach() { this.guest = undefined; this.desktop = this.run(['attach', 'test'], { ZATARA_TRACE: '1', ZATARA_TEST_HOST: path.join(this.dir, 'display.sock') }); await until(() => this.guest); await until(() => this.bgra); await delay(200); }
   request(m: any) { return rpc(this.socket, m); }

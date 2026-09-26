@@ -1,0 +1,530 @@
+{
+  "native": [
+    {
+      "host": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "release": "27.2.0",
+        "cpu": "Apple M5 Pro",
+        "node": "v22.23.2",
+        "pixel": "0.0.15",
+        "viewport": [
+          1200,
+          792
+        ]
+      },
+      "results": [
+        {
+          "name": "idle, shell + Pixel app",
+          "elapsedMs": 3019.2554579999996,
+          "frames": 2,
+          "rawLocalSurfaceBytes": 7603200,
+          "rssMiB": 306.796875,
+          "cpuPercentOneCore": 2.3184523791958007,
+          "processCount": 4
+        },
+        {
+          "name": "drag, 12 mouse updates per gesture",
+          "elapsedMs": 1799.0341250000001,
+          "frames": 48,
+          "rawLocalSurfaceBytes": 182476800,
+          "rssMiB": 335.53125,
+          "cpuPercentOneCore": 46.69172131462486,
+          "processCount": 4
+        },
+        {
+          "name": "counter clicks",
+          "elapsedMs": 866.7747079999999,
+          "frames": 10,
+          "rawLocalSurfaceBytes": 38016000,
+          "rssMiB": 336.296875,
+          "cpuPercentOneCore": 36.91847455244392,
+          "processCount": 4
+        },
+        {
+          "name": "50000 lines of shell output",
+          "elapsedMs": 150.30724999999984,
+          "frames": 7,
+          "rawLocalSurfaceBytes": 26611200,
+          "rssMiB": 350.1875,
+          "cpuPercentOneCore": 126.40774147620968,
+          "processCount": 4
+        },
+        {
+          "name": "idle after output",
+          "elapsedMs": 3015.2719589999997,
+          "frames": 0,
+          "rawLocalSurfaceBytes": 0,
+          "rssMiB": 348.84375,
+          "cpuPercentOneCore": 0.6632900869954338,
+          "processCount": 4
+        }
+      ],
+      "inputToCapturedFrameMs": {
+        "p50": 24.336499999999432,
+        "p95": 24.79441599999973,
+        "samples": 10,
+        "method": "native host frame callback"
+      },
+      "caveats": [
+        "Native offscreen Pixel host, not a physical Ghostty display.",
+        "Raw local BGRA surface bytes are not SSH bandwidth.",
+        "Frame capture latency ends at the native host frame callback, not at the physical display.",
+        "RSS sum can double-count shared pages. CPU derives from ps accumulated process CPU time."
+      ],
+      "serverMetrics": {
+        "startedAt": 1790437754197,
+        "frames": 22,
+        "frameBytes": 23417856,
+        "notifications": 69,
+        "coalesced": 21,
+        "inputEvents": 21,
+        "frameAfterInputMs": [
+          1.8832080000001952,
+          1.7736249999998108,
+          2.1120419999997466,
+          3.6540840000006938,
+          3.7307080000000497,
+          3.867707999999766,
+          3.548334000000068,
+          3.8667920000007143,
+          3.950249999999869,
+          3.025582999999642
+        ]
+      }
+    },
+    {
+      "host": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "release": "27.2.0",
+        "cpu": "Apple M5 Pro",
+        "node": "v22.23.2",
+        "pixel": "0.0.15",
+        "viewport": [
+          1200,
+          792
+        ]
+      },
+      "results": [
+        {
+          "name": "idle, shell + Pixel app",
+          "elapsedMs": 3017.4092499999997,
+          "frames": 2,
+          "rawLocalSurfaceBytes": 7603200,
+          "rssMiB": 307.671875,
+          "cpuPercentOneCore": 1.6570506635783677,
+          "processCount": 4
+        },
+        {
+          "name": "drag, 12 mouse updates per gesture",
+          "elapsedMs": 1803.6997499999998,
+          "frames": 48,
+          "rawLocalSurfaceBytes": 182476800,
+          "rssMiB": 333.875,
+          "cpuPercentOneCore": 47.67977597158287,
+          "processCount": 4
+        },
+        {
+          "name": "counter clicks",
+          "elapsedMs": 865.333791,
+          "frames": 10,
+          "rawLocalSurfaceBytes": 38016000,
+          "rssMiB": 334.625,
+          "cpuPercentOneCore": 36.979949625011216,
+          "processCount": 4
+        },
+        {
+          "name": "50000 lines of shell output",
+          "elapsedMs": 150.80112499999996,
+          "frames": 7,
+          "rawLocalSurfaceBytes": 26611200,
+          "rssMiB": 348.390625,
+          "cpuPercentOneCore": 132.6250052842777,
+          "processCount": 4
+        },
+        {
+          "name": "idle after output",
+          "elapsedMs": 3016.213708000001,
+          "frames": 0,
+          "rawLocalSurfaceBytes": 0,
+          "rssMiB": 347.078125,
+          "cpuPercentOneCore": 0.6630829886805815,
+          "processCount": 4
+        }
+      ],
+      "inputToCapturedFrameMs": {
+        "p50": 23.731957999999395,
+        "p95": 25.04424999999992,
+        "samples": 10,
+        "method": "native host frame callback"
+      },
+      "caveats": [
+        "Native offscreen Pixel host, not a physical Ghostty display.",
+        "Raw local BGRA surface bytes are not SSH bandwidth.",
+        "Frame capture latency ends at the native host frame callback, not at the physical display.",
+        "RSS sum can double-count shared pages. CPU derives from ps accumulated process CPU time."
+      ],
+      "serverMetrics": {
+        "startedAt": 1790437768770,
+        "frames": 22,
+        "frameBytes": 23417856,
+        "notifications": 69,
+        "coalesced": 21,
+        "inputEvents": 21,
+        "frameAfterInputMs": [
+          1.6366669999997612,
+          1.9624159999993935,
+          2.1222090000001117,
+          3.124917000000096,
+          3.8469999999997526,
+          3.429874999999811,
+          3.5229580000004717,
+          10.934666000000107,
+          2.7430420000000595,
+          3.4201670000002196
+        ]
+      }
+    },
+    {
+      "host": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "release": "27.2.0",
+        "cpu": "Apple M5 Pro",
+        "node": "v22.23.2",
+        "pixel": "0.0.15",
+        "viewport": [
+          1200,
+          792
+        ]
+      },
+      "results": [
+        {
+          "name": "idle, shell + Pixel app",
+          "elapsedMs": 3016.394833,
+          "frames": 2,
+          "rawLocalSurfaceBytes": 7603200,
+          "rssMiB": 306.296875,
+          "cpuPercentOneCore": 0.9945647589564091,
+          "processCount": 4
+        },
+        {
+          "name": "drag, 12 mouse updates per gesture",
+          "elapsedMs": 1803.0892080000003,
+          "frames": 48,
+          "rawLocalSurfaceBytes": 182476800,
+          "rssMiB": 333.421875,
+          "cpuPercentOneCore": 44.92290211744197,
+          "processCount": 4
+        },
+        {
+          "name": "counter clicks",
+          "elapsedMs": 864.5358750000005,
+          "frames": 10,
+          "rawLocalSurfaceBytes": 38016000,
+          "rssMiB": 335.4375,
+          "cpuPercentOneCore": 35.857389955043814,
+          "processCount": 4
+        },
+        {
+          "name": "50000 lines of shell output",
+          "elapsedMs": 151.87845799999923,
+          "frames": 7,
+          "rawLocalSurfaceBytes": 26611200,
+          "rssMiB": 350.34375,
+          "cpuPercentOneCore": 144.85266896770895,
+          "processCount": 4
+        },
+        {
+          "name": "idle after output",
+          "elapsedMs": 3015.0150839999997,
+          "frames": 0,
+          "rawLocalSurfaceBytes": 0,
+          "rssMiB": 348.984375,
+          "cpuPercentOneCore": 0.6633465983681301,
+          "processCount": 4
+        }
+      ],
+      "inputToCapturedFrameMs": {
+        "p50": 23.59820899999977,
+        "p95": 25.26800000000003,
+        "samples": 10,
+        "method": "native host frame callback"
+      },
+      "caveats": [
+        "Native offscreen Pixel host, not a physical Ghostty display.",
+        "Raw local BGRA surface bytes are not SSH bandwidth.",
+        "Frame capture latency ends at the native host frame callback, not at the physical display.",
+        "RSS sum can double-count shared pages. CPU derives from ps accumulated process CPU time."
+      ],
+      "serverMetrics": {
+        "startedAt": 1790437783319,
+        "frames": 22,
+        "frameBytes": 23417856,
+        "notifications": 69,
+        "coalesced": 21,
+        "inputEvents": 21,
+        "frameAfterInputMs": [
+          1.869792000000416,
+          1.8071249999993597,
+          2.433208000000377,
+          2.6611669999992955,
+          3.8628749999998035,
+          3.1220000000002983,
+          3.688000000000102,
+          3.405040999999983,
+          3.1044999999994616,
+          3.134541000000354
+        ]
+      }
+    }
+  ],
+  "transport": [
+    {
+      "transport": "inline Kitty over local PTY; emulated terminal replies",
+      "viewport": [
+        1200,
+        792
+      ],
+      "idle": {
+        "durationMs": 2001,
+        "bytes": 0
+      },
+      "drag": {
+        "durationMs": 1260,
+        "bytes": 3170402,
+        "frames": 20
+      },
+      "totalBytes": 3481742,
+      "caveat": "No real SSH connection, network shaping, or physical display. Measures actual encoded terminal bytes."
+    },
+    {
+      "transport": "inline Kitty over local PTY; emulated terminal replies",
+      "viewport": [
+        1200,
+        792
+      ],
+      "idle": {
+        "durationMs": 2001,
+        "bytes": 0
+      },
+      "drag": {
+        "durationMs": 1259,
+        "bytes": 3169581,
+        "frames": 20
+      },
+      "totalBytes": 3506919,
+      "caveat": "No real SSH connection, network shaping, or physical display. Measures actual encoded terminal bytes."
+    },
+    {
+      "transport": "inline Kitty over local PTY; emulated terminal replies",
+      "viewport": [
+        1200,
+        792
+      ],
+      "idle": {
+        "durationMs": 2000,
+        "bytes": 0
+      },
+      "drag": {
+        "durationMs": 1257,
+        "bytes": 3166015,
+        "frames": 20
+      },
+      "totalBytes": 3477114,
+      "caveat": "No real SSH connection, network shaping, or physical display. Measures actual encoded terminal bytes."
+    }
+  ],
+  "captures": [
+    {
+      "requested": {
+        "width": 800,
+        "height": 600,
+        "scale": 1
+      },
+      "captured": {
+        "width": 800,
+        "height": 594
+      },
+      "rendering": {
+        "cell": {
+          "width": 8,
+          "height": 18
+        },
+        "surfaces": {
+          "8c792031": {
+            "width": 616,
+            "height": 378,
+            "seq": 3
+          },
+          "3a729c05": {
+            "width": 616,
+            "height": 396,
+            "seq": 3
+          }
+        }
+      },
+      "file": ".artifacts/polish-800x600-1x.png"
+    },
+    {
+      "requested": {
+        "width": 1200,
+        "height": 792,
+        "scale": 1
+      },
+      "captured": {
+        "width": 1200,
+        "height": 792
+      },
+      "rendering": {
+        "cell": {
+          "width": 8,
+          "height": 18
+        },
+        "surfaces": {
+          "42274952": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          },
+          "70b9a39c": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          }
+        }
+      },
+      "file": ".artifacts/polish-1200x792-1x.png"
+    },
+    {
+      "requested": {
+        "width": 1600,
+        "height": 1000,
+        "scale": 1
+      },
+      "captured": {
+        "width": 1600,
+        "height": 990
+      },
+      "rendering": {
+        "cell": {
+          "width": 8,
+          "height": 18
+        },
+        "surfaces": {
+          "a89d5b71": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          },
+          "56d0940e": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          }
+        }
+      },
+      "file": ".artifacts/polish-1600x1000-1x.png"
+    },
+    {
+      "requested": {
+        "width": 1200,
+        "height": 792,
+        "scale": 2
+      },
+      "captured": {
+        "width": 1200,
+        "height": 792
+      },
+      "rendering": {
+        "cell": {
+          "width": 8,
+          "height": 18
+        },
+        "surfaces": {
+          "5d42fde7": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          },
+          "1970fe01": {
+            "width": 672,
+            "height": 396,
+            "seq": 2
+          }
+        }
+      },
+      "file": ".artifacts/polish-1200x792-2x.png"
+    }
+  ],
+  "realApps": {
+    "rendering": {
+      "cell": {
+        "width": 8,
+        "height": 18
+      },
+      "surfaces": {
+        "b4229801": {
+          "width": 680,
+          "height": 432,
+          "seq": 49
+        },
+        "9cd60b3f": {
+          "width": 744,
+          "height": 432,
+          "seq": 391
+        }
+      },
+      "browserToolbarComparison": {
+        "exactPixelFraction": 1,
+        "x": 147,
+        "y": 77
+      }
+    },
+    "result": "passed",
+    "workload": "Static local browser page + terminal-code. 3-second idle sample after 3-second settling period.",
+    "memory": {
+      "rssMiB": 2739.109375,
+      "processCount": 20,
+      "idleFrames": 0,
+      "idleCpuPercentOneCore": 8.59950204748774
+    },
+    "windows": [
+      {
+        "id": "b4229801",
+        "app": "browser",
+        "title": "Scrolled: 100 / browser_kept",
+        "kind": "pixel",
+        "pid": 48412,
+        "minimized": false,
+        "maximized": false,
+        "status": "Running",
+        "x": 145,
+        "y": 40,
+        "width": 690,
+        "height": 480,
+        "order": 0
+      },
+      {
+        "id": "9cd60b3f",
+        "app": "code",
+        "title": "● // Zatara: an independent Pixel applicat • Untitled-4",
+        "kind": "pixel",
+        "pid": 48422,
+        "minimized": false,
+        "maximized": false,
+        "status": "Running",
+        "x": 420,
+        "y": 210,
+        "width": 750,
+        "height": 480,
+        "order": 1
+      }
+    ],
+    "frames": 185,
+    "frameBytes": 703296000,
+    "logDirectory": "/tmp/zt-pqz0fi",
+    "measurementNote": "Single smoke-test observation after restarting the shared backend; not a controlled browser/editor performance comparison. Earlier warm-backend repeats accumulated extension hosts."
+  }
+}

@@ -53,3 +53,21 @@ receive focus loss, but arbitrary guests may continue animating internally.
 App launch metadata and geometry are held in memory. The service deliberately
 does not claim disk-persistent session recovery. Apps are trusted local programs;
 this is a same-user desktop, not an application sandbox or multi-user server.
+
+
+## Rendering polish adapter
+
+`src/pixel-frame.ts` handles the pinned Pixel guest/readback alpha boundary.
+Browser toolbar pixels arrive as straight-alpha BGRA. Uploading them directly
+through the native Surface path overbrightened partially transparent edges;
+one measured pixel went from RGBA (210,225,240,17) to (255,255,255,17).
+Zatara now composites guest pixels onto its opaque viewport background before
+upload, in the already-owned read buffer. Fully opaque pixels are untouched.
+No installed Pixel files are changed. Re-evaluate this adapter on Pixel upgrades.
+The real-app test compares the toolbar crop against the expected composited
+pixels and records the matched origin and fraction in its report.
+
+`contentSize` shares cell-aligned content geometry between the host and desktop.
+`inspect` includes cell size and latest guest frame dimensions for diagnosis.
+Taskbar layout and context hit tests share rectangles from `src/layout.ts`.
+Decoration uses static gradients and borders, with no shadows or animation loop.

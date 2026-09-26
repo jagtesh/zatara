@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { OwnerServer, Guest } from '../node_modules/@zenbu-labs/pixel/dist/host/server';
 import { InstanceRecord, PROTOCOL } from '../node_modules/@zenbu-labs/pixel/dist/instances';
 import { applications } from './apps';
-import { DesktopState, WindowState, action, bounds, constrain, focus, TITLE } from './model';
+import { DesktopState, WindowState, action, bounds, contentSize, constrain, focus } from './model';
 import { lines, send, sessionPath, runtime } from './ipc';
 import { Shell, keySequence } from './terminal';
 type Frame = { path: string; width: number; height: number; seq: number };
@@ -34,7 +34,7 @@ export function serve(name: string) {
   }
   function changed() { send(client, { type: 'state', state }); }
   function syncWindow(w: WindowState) {
-    const r = bounds(w, state), width = Math.max(8, Math.floor((r.width - 4) / cell.width) * cell.width), height = Math.max(cell.height, Math.floor((r.height - TITLE - 4) / cell.height) * cell.height);
+    const r = bounds(w, state), { width, height } = contentSize(r, cell);
     shells.get(w.id)?.resize(Math.floor(width / cell.width), Math.floor(height / cell.height));
     guests.get(w.id)?.send({ type: 'size', width, height, cols: width / cell.width, rows: height / cell.height });
     dirtyShells.add(w.id); dirtyFrames.add(w.id); schedule();
@@ -44,7 +44,7 @@ export function serve(name: string) {
     const w = state.windows.find(w => w.id === guest.pane) ?? state.windows.find(w => w.pid === guest.pid) ?? state.windows.find(w => w.kind === 'pixel' && !guests.has(w.id) && w.status === 'Starting');
     if (!w) { guest.close(); return; }
     guests.set(w.id, guest); w.status = 'Running';
-    const r = bounds(w, state), width = Math.max(cell.width, Math.floor((r.width - 4) / cell.width) * cell.width), height = Math.max(cell.height, Math.floor((r.height - TITLE - 4) / cell.height) * cell.height);
+    const r = bounds(w, state), { width, height } = contentSize(r, cell);
     guest.send({ type: 'init', width, height, cols: width / cell.width, rows: height / cell.height, colors: colors as any, focused: !!client && state.focused === w.id });
     guest.onFrame = frame => {
       try {
@@ -119,7 +119,7 @@ export function serve(name: string) {
         for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height)); syncWindow(w); }
         syncFocus(); changed(); schedule(); return;
       }
-      if (m.type === 'list' || m.type === 'inspect') { send(socket, { type: 'state', state, metrics, pid: process.pid }); return; }
+      if (m.type === 'list' || m.type === 'inspect') { send(socket, { type: 'state', state, metrics, pid: process.pid, rendering: { cell, surfaces: Object.fromEntries([...frames].map(([id, f]) => [id, { width: f.width, height: f.height, seq: f.seq }])) } }); return; }
       if (m.type === 'detach') { client?.end(); client = null; state.attached = false; syncFocus(); send(socket, { type: 'ok' }); return; }
       if (m.type === 'kill') { send(socket, { type: 'ok' }); setTimeout(stop, 30); return; }
       if (m.type === 'launch') { send(socket, { type: 'launched', id: launch(m.app) }); return; }

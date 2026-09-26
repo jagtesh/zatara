@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { PNG } from 'pngjs';
+import { flattenGuestFrame } from '../src/pixel-frame';
 import os from 'node:os';
 import { processes } from './measure';
 import path from 'node:path';
@@ -44,12 +46,41 @@ async function main() {
     h.desktop!.kill('SIGKILL');
     await until(async () => !(await h.request({ type: 'inspect' })).state.attached);
     await h.attach(); await delay(300); h.save('.artifacts/pixel-apps-reconnected.png');
-    const after = (await h.request({ type: 'inspect' })).state;
+    // Compare upstream toolbar pixels with the composite at native resolution.
+    const diagnostics = await h.request({ type: 'inspect' });
+    const surface = diagnostics.rendering.surfaces[browser];
+    const raw = fs.readFileSync(path.join(h.dir, 'test-frames', browser + '.bgra'));
+    const png = new PNG({ width: surface.width, height: surface.height });
+    for (let i = 0; i < raw.length; i += 4) { png.data[i] = raw[i+2]; png.data[i+1] = raw[i+1]; png.data[i+2] = raw[i]; png.data[i+3] = raw[i+3]; }
+    fs.writeFileSync('.artifacts/browser-guest.png', PNG.sync.write(png));
+    flattenGuestFrame(raw);
+    let best = { exactPixelFraction: 0, x: 0, y: 0 };
+    // Search only around the known window origin; exclude border and right controls.
+    for (let oy = 74; oy <= 80; oy++) for (let ox = 145; ox <= 150; ox++) {
+      let exact = 0, total = 0;
+      for (let y = 3; y < 25; y++) for (let x = 20; x < 630; x++) {
+        const a = (y * surface.width + x) * 4, b = ((y + oy) * h.width + x + ox) * 4;
+        if (raw[a] === h.bgra![b] && raw[a+1] === h.bgra![b+1] && raw[a+2] === h.bgra![b+2]) exact++;
+        total++;
+      }
+      if (exact / total > best.exactPixelFraction) best = { exactPixelFraction: exact / total, x: ox, y: oy };
+    }
+    const rendering = { ...diagnostics.rendering, browserToolbarComparison: best };
+    assert.ok(best.exactPixelFraction > 0.99, 'browser toolbar must match the alpha-composited guest at 1:1 pixels');
+    const after = diagnostics.state;
     assert.ok(after.windows.find((w: any) => w.id === browser).title.includes('browser_kept'));
     assert.deepEqual(after.windows.map((w: any) => [w.id,w.pid]).sort(), before.windows.map((w: any) => [w.id,w.pid]).sort());
     await h.request({ type: 'action', id: code, op: 'minimize' });
     await h.request({ type: 'action', id: code, op: 'focus' });
-    const report = { result: 'passed', workload: 'Static local browser page + terminal-code. 3-second idle sample after 3-second settling period.', memory, windows: after.windows, frames: h.frames, frameBytes: h.bytes, logDirectory: h.dir };
+    // Wait for the desktop's focus frame before sending input through its z-order.
+    const focusedFrame = h.nextFrame();
+    await h.request({ type: 'action', id: browser, op: 'focus' });
+    await focusedFrame;
+    h.guest!.send({ type: 'wheel', x: 500, y: 400, deltaX: 0, deltaY: -100, mods: { shift: false, alt: false, ctrl: false, super: false } });
+    await until(async () => (await h.request({ type: 'inspect' })).state.windows.find((w: any) => w.id === browser).title.startsWith('Scrolled: 0'), 5000);
+    await h.request({ type: 'action', id: code, op: 'focus' });
+    await delay(250); h.save('.artifacts/polished-apps.png');
+    const report = { rendering, result: 'passed', workload: 'Static local browser page + terminal-code. 3-second idle sample after 3-second settling period.', memory, windows: after.windows, frames: h.frames, frameBytes: h.bytes, logDirectory: h.dir };
     fs.writeFileSync('.artifacts/apps-verification.json', JSON.stringify(report,null,2)+'\n');
     console.log(JSON.stringify(report,null,2));
   } finally { await h.close(); }

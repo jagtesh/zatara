@@ -1,7 +1,7 @@
 # Desktop polish plan
 
-Review date: 2026-09-26. This is a proposed implementation pass, not a record of
-completed UI changes. Baseline: the committed proof of concept and its existing
+Review date: 2026-09-26. Implementation results are recorded in
+[polish-results.md](polish-results.md). The review below preserves the rationale. Baseline: the committed proof of concept and its existing
 measurements in [verification.md](verification.md).
 
 ![Current desktop with real browser and editor](images/poc-desktop.png)
@@ -31,6 +31,10 @@ desktop; improve legibility and window separation rather than adding effects.
 - **The wallpaper caption competes with windows.** Its subtitle peeks out below
   the editor. Keep branding subtle enough that partially covered text does not
   attract attention.
+- **The boottom taskbar has excessive padding and follows a flat style** A little 3D never hurt anyone.
+- **The window top bar decoration should contain a border with a different color** Because the bottom window has a border that makes it protrude by 1 or 2 more pixels than the top. Also the background color of the window top decoration is same as color elsewhere so gets blended, the border will help differenciate that.
+- **Shadows omitted** per the subsequent instruction to ignore shadows.
+
 
 The browser page heading is cut off because this capture follows a deliberate
 scroll test. That is not evidence of a clipping defect. This native frame also
@@ -69,8 +73,7 @@ and the pinned Pixel adapter only if scale tracing identifies a hosting issue.
    including a restrained red hover for close. Keep controls fixed while the
    title truncates.
 3. Give the focused header a slightly clearer tonal separation and soften
-   inactive decoration without dimming application content. Trial a small,
-   cached shadow only after checking Pixel support and its measured cost.
+   inactive decoration without dimming application content. Use borders and tonal contrast; omit shadows.
 4. Improve browser/editor icon recognition while keeping the same icon plate
    sizes. Add clear desktop-icon selection feedback before double-click launch.
 5. Reduce the wallpaper caption's prominence or remove the subtitle. Preserve

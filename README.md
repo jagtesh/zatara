@@ -45,7 +45,7 @@ node dist/cli.js launch main code
 
 The optional setup downloads **terminal-browser 0.11.1** and **terminal-code/tode
 0.3.4** from their official releases into `.artifacts/apps`, without replacing
-installed binaries. These copies are already present in this working directory.
+installed binaries. These downloads are not included in the Git repository.
 Start a new session after installation. Tode downloads code-server on first use
 and keeps its own data under the standard XDG directories.
 
@@ -103,3 +103,13 @@ measured costs, and unverified boundaries. Screenshots and raw measurement JSON
 are written to `.artifacts/`. Runtime sockets and logs live in the private
 `zatara-<uid>` directory beneath the OS temporary directory; `ZATARA_RUNTIME`
 overrides it for tests. No network listener is opened by Zatara's session service.
+
+
+## Desktop polish
+
+The taskbar uses stable application labels, instance numbers, hover titles, and
+an overflow menu. Long window titles truncate before the controls. Decoration
+uses a compact shaded taskbar, bordered headers, rounded corners, and no shadows.
+See [polish results](docs/polish-results.md) for captures, rendering fixes, and
+measurement limits. Reproduce the native viewport captures after building with
+`npx tsx scripts/polish-captures.ts`.
