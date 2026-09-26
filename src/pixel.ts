@@ -4,6 +4,7 @@ export * from '../node_modules/@zenbu-labs/pixel/dist/react';
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import * as Native from '../node_modules/@zenbu-labs/pixel/dist/react';
 import { physicalStyle, terminalScale } from './display';
+import { normalizeKeyEvent } from './key-event';
 let scale = 1;
 export const displayScale = () => scale;
 function point<T extends { x: number; y: number }>(e: T): T { return { ...e, x: e.x / scale, y: e.y / scale }; }
@@ -54,6 +55,7 @@ export function createRoot(options: Native.RootOptions = {}): Native.PixelRoot {
     return { ...i, width: i.width / scale, height: i.height / scale, basePx: i.basePx / scale, cellWidth: cell.width / scale, cellHeight: cell.height / scale };
   };
   raw = Native.createRoot({ ...options,
+    onKey: options.onKey && (e => options.onKey!(normalizeKeyEvent(e))),
     onRightClick: options.onRightClick && (e => options.onRightClick!(point(e))),
     onResize() { if (!raw) return; const i = info(); options.onResize?.({ width: i.width, height: i.height, basePx: i.basePx }); },
   });
