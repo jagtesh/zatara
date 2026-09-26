@@ -13,13 +13,31 @@ real processes. Detach the desktop and come back to the same running apps.
 
 ## Run
 
-Requires Node 22+, macOS arm64, and a Kitty-graphics terminal such as Ghostty.
+Requires Node 22+ and a Kitty-graphics terminal such as Ghostty or Kitty.
+macOS arm64 is tested; Linux support is experimental. Apple Terminal and plain
+serial/text consoles cannot display the desktop. The direct Linux display
+backend is planned, not included in this release.
+
+Install from npm:
+
+```sh
+npm install -g zatara
+zatara
+```
+
+Or build from source:
 
 ```sh
 npm ci
 npm run build
 npm start
 ```
+
+For a Linux server, install Node 22+ **and npm** on the server, install Zatara
+there, then use Ghostty or Kitty on your Mac to run `ssh -t linuxmacan zatara`.
+The desktop, shells and Pixel apps execute on the server. Linux native runtime
+dependencies still need validation; report launch failures rather than assuming
+the macOS acceptance results cover Linux.
 
 Double-click a desktop icon. Drag a title bar or resize an edge. Double-click a
 title bar to maximize/restore. Right-click a title bar or taskbar item for window
@@ -182,3 +200,8 @@ host; they are not mockups or captures of a live Ghostty window.
 npm run build
 npx tsx scripts/readme-captures.ts
 ```
+
+## License
+
+BSD-3-Clause. Copyright (c) 2026 Jagtesh Chadha. See [LICENSE](LICENSE).
+Third-party dependencies retain their own licenses.

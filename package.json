@@ -2,7 +2,6 @@
   "name": "zatara",
   "version": "0.1.0",
   "description": "A persistent desktop for Pixel apps",
-  "main": "index.js",
   "scripts": {
     "build": "tsc && node scripts/build.cjs",
     "start": "node dist/cli.js",
@@ -12,11 +11,18 @@
     "postinstall": "node scripts/postinstall.cjs",
     "setup:apps": "node scripts/setup-apps.cjs",
     "test:apps": "npm run build && tsx scripts/apps-smoke.ts",
-    "bench:transport": "npm run build && tsx scripts/terminal-bench.ts"
+    "bench:transport": "npm run build && tsx scripts/terminal-bench.ts",
+    "prepack": "npm run check && npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "terminal",
+    "desktop",
+    "pixel",
+    "pty",
+    "window-manager"
+  ],
+  "author": "Jagtesh Chadha",
+  "license": "BSD-3-Clause",
   "dependencies": {
     "@xterm/headless": "6.0.0",
     "@zenbu-labs/pixel": "0.0.15",
@@ -31,8 +37,29 @@
     "tsx": "4.23.15",
     "typescript": "7.0.2"
   },
-  "private": true,
   "bin": {
     "zatara": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jagtesh/zatara.git"
+  },
+  "homepage": "https://github.com/jagtesh/zatara#readme",
+  "bugs": {
+    "url": "https://github.com/jagtesh/zatara/issues"
+  },
+  "files": [
+    "dist/",
+    "scripts/postinstall.cjs",
+    "scripts/setup-apps.cjs",
+    "docs/",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
