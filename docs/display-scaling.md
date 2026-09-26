@@ -32,15 +32,27 @@ fill cells rather than the font's narrower advance. This costs more nodes than
 one text node per row; it prevents font shaping from moving the visual insertion
 point away from the actual cursor and mouse-reporting grid.
 
+When a snapshot has more rows than the content area can show, the shell view
+keeps the cursor's row visible and translates pointer/wheel coordinates back
+to the corresponding xterm row. Only complete visible rows are drawn. This
+handles resize-in-flight snapshots and older persistent services that still
+budget unscaled title bars. Detach and reattach to load this attachment fix;
+shell processes and state survive. This is a compatibility viewport, not a
+hot upgrade of the service: an older service can still report more PTY rows
+than are visible, so full-screen TUIs need a fresh session for exact sizing.
+
 ## Validation
 
-`npm test`: 19 runtime tests plus compiler contract checks passed. Native
+`npm test`: 22 runtime tests plus compiler contract checks passed. Native
 readback tests use real 16×34 cells, not merely `PIXEL_DISPLAY_SCALE=2` (that
 variable controls upstream web rendering, not the native UI). Coverage includes
 scaled guest input, dragging, maximize/restore, geometry, and reconnect PID
 survival. A 60-character line has exactly 16px between every glyph; the cursor
 immediately follows. The same shell checks wide and combining character cells.
 The existing 8×18 tests and sustained 50,000-line output test also pass.
+Short-window tests read back cursor pixels at 16×34 cell size, with both current
+geometry and a simulated legacy service decoration budget. Pointer translation,
+scrollback, and a TUI cursor at the top of the buffer have unit coverage.
 
 This verifies the native harness. A live Ghostty visual confirmation is still
 needed. Start a fresh session so the updated service and guests are loaded:

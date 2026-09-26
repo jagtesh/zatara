@@ -66,3 +66,37 @@ test('shell glyph columns and cursor remain aligned after a long line at high DP
     h.save('.artifacts/dpi-shell.png');
   } finally { await h.close(); }
 });
+
+// Simulate an old persistent service's unscaled title-bar budget while running
+// the real current attachment, PTY, xterm parser and native compositor.
+for (const legacy of [false, true]) test(`short shell windows keep the last row and cursor visible with ${legacy ? 'stale' : 'current'} service geometry`, { timeout: 20000 }, async () => {
+  const dir = fs.mkdtempSync('.artifacts/viewport-service-');
+  fs.cpSync('dist', `${dir}/dist`, { recursive: true });
+  fs.symlinkSync(`${process.cwd()}/node_modules`, `${dir}/node_modules`);
+  const server = `${dir}/dist/server.js`, source = fs.readFileSync(server, 'utf8');
+  assert.ok(source.includes('(r, cell, state.scale)'));
+  fs.writeFileSync(server, legacy ? source.replaceAll('(r, cell, state.scale)', '(r, cell, 1)') : source);
+  const h = new Harness({ cli: `${dir}/dist/cli.js`, width: 1600, height: 1020, cell: { width: 16, height: 34 } });
+  try {
+    await h.ready(); const { id } = await h.request({ type: 'launch', app: 'shell' }); await h.attach();
+    await h.request({ type: 'action', id, op: 'move', rect: { x: 200, y: 200, width: 1200, height: 280 } });
+    await h.request({ type: 'input', id, event: { type: 'text', text: `python3 -c "import sys,time;sys.stdout.write('\\x1b[2J\\x1b[999;1HTAIL');sys.stdout.flush();time.sleep(30)"\r` } });
+    await until(async () => { const { screen } = await h.request({ type: 'screen', id }); return screen.cursor.x === 4 && screen.rows.at(-1).slice(0, 4).map((c: any) => c.text).join('') === 'TAIL'; });
+    const screen = (await h.request({ type: 'screen', id })).screen;
+    const s = 34 / 18, visibleRows = Math.floor((280 - 40 * s) / 34);
+    if (legacy) assert.ok(screen.rowCount > visibleRows, 'reproduces a PTY taller than its viewport');
+    else assert.equal(screen.rowCount, visibleRows, 'current service and attachment agree on row count');
+    await delay(250);
+    // The cursor's bright underline must be inside the last complete visible
+    // row, not clipped below the window (the original regression).
+    let cursorPixels = 0;
+    for (let y = Math.floor(200 + 37 * s + (visibleRows - 1) * 34); y < 200 + 37 * s + visibleRows * 34; y++) {
+      for (let x = Math.ceil(200 + 2 * s + 4 * 16); x < 200 + 2 * s + 5 * 16; x++) {
+        const i = (y * h.width + x) * 4, b = h.bgra!;
+        if (b[i] > 220 && b[i + 1] > 160 && b[i + 2] > 170) cursorPixels++;
+      }
+    }
+    assert.ok(cursorPixels >= 20, `cursor visible inside viewport: ${cursorPixels} pixels`);
+    h.save(`.artifacts/short-shell-${legacy ? 'legacy' : 'current'}.png`);
+  } finally { await h.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});

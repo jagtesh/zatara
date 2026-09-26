@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Box, Text, BoxProps } from './pixel';
 import type { Cell, Screen } from './terminal';
+import { shellViewport, terminalPoint } from './shell-viewport';
 
 interface RowProps { cells: Cell[]; y: number; cellWidth: number; cellHeight: number; fontSize: number }
 /** xterm's column is authoritative; font shaping must never accumulate cell drift. */
@@ -21,8 +22,13 @@ export interface ShellViewportProps {
   input: Pick<BoxProps, 'onPointer' | 'onMouseMove' | 'onWheel'>;
 }
 export function ShellViewport({ screen, focused, width, height, cellWidth, cellHeight, fontSize, input }: ShellViewportProps) {
-  return <Box style={{ width, height, background: '#111827', overflow: 'hidden' }} {...input}>
-    {screen?.rows.map((cells, y) => <Row key={y} cells={cells} y={y} cellWidth={cellWidth} cellHeight={cellHeight} fontSize={fontSize} />)}
-    {screen && focused && screen.cursor.y >= 0 && <Box style={{ position: 'absolute', inset: { left: screen.cursor.x * cellWidth, top: screen.cursor.y * cellHeight }, width: cellWidth, height: cellHeight, background: '#a78bfa55', border: { bottom: [2, '#c4b5fd'] } }} />}
+  const { first, count, offsetY } = shellViewport(screen, height, cellHeight);
+  const cursorY = (screen?.cursor.y ?? -1) - first;
+  return <Box style={{ width, height, background: '#111827', overflow: 'hidden' }}
+    onPointer={input.onPointer && (e => input.onPointer!(terminalPoint(e, offsetY)))}
+    onMouseMove={input.onMouseMove && (e => input.onMouseMove!(terminalPoint(e, offsetY)))}
+    onWheel={input.onWheel && (e => input.onWheel!(terminalPoint(e, offsetY)))}>
+    {screen?.rows.slice(first, first + count).map((cells, y) => <Row key={first + y} cells={cells} y={y} cellWidth={cellWidth} cellHeight={cellHeight} fontSize={fontSize} />)}
+    {screen && focused && cursorY >= 0 && cursorY < count && <Box style={{ position: 'absolute', inset: { left: screen.cursor.x * cellWidth, top: cursorY * cellHeight }, width: cellWidth, height: cellHeight, background: '#a78bfa55', border: { bottom: [2, '#c4b5fd'] } }} />}
   </Box>;
 }
