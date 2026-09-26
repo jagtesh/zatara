@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import { Box, Text as PixelText, TextProps, createRoot, PixelRoot, Surface, PointerEvent, DragEvent, TextSpan, NodeHandle } from './pixel';
 import { DesktopState, WindowState, Rect, bounds, contentSize, BAR, TITLE, action as reduce } from './model';
-import { Desktop as DesktopFrame, AppWindow as WindowFrame, TitleBar as HeaderFrame, Taskbar as BarFrame, DesktopIcon as IconFrame, AppGlyph } from './primitives';
+import { Desktop as DesktopFrame, AppWindow as WindowFrame, TitleBar as HeaderFrame, Taskbar as BarFrame, DesktopIcon as IconFrame, AppGlyph, MaximizeGlyph } from './primitives';
 import { flattenGuestFrame } from './pixel-frame';
 import { Screen } from './terminal';
 import { lines, send, sessionPath } from './ipc';
@@ -125,9 +125,9 @@ export function attach(name: string) {
   process.on('SIGTERM', () => finish()); process.on('SIGHUP', () => finish());
   process.on('SIGWINCH', () => root?.nudgeResize());
 
-  function Button({ label, onClick, accent = false, control = false, danger = false }: { label: string; onClick(): void; accent?: boolean; control?: boolean; danger?: boolean }) {
+  function Button({ label, children, onClick, accent = false, control = false, danger = false }: { label?: string; children?: React.ReactNode; onClick(): void; accent?: boolean; control?: boolean; danger?: boolean }) {
     const [pressed, setPressed] = useState(false), armed = useRef(false);
-    return <Box onPointer={e => { if (e.button !== 'left') return; if (e.kind === 'down') { armed.current = true; setPressed(true); } if (e.kind === 'up') { setPressed(false); if (armed.current) onClick(); armed.current = false; } }} onMouseEnter={() => root.setPointerShape('pointer')} onMouseLeave={() => { armed.current = false; setPressed(false); root.setPointerShape('default'); }} style={{ width: control ? T.controlSize : '100%', height: control ? T.controlSize : 36, flexShrink: 0, padding: { left: control ? 0 : 10, right: control ? 0 : 10 }, cornerRadius: 6, background: pressed ? '#52617c' : accent ? verticalGradient('#52436e', '#352d4f') : undefined, hoverBackground: danger ? '#873e51' : '#40516d', alignItems: 'center', justifyContent: control ? 'center' : 'start', overflow: 'hidden' }}><Text style={{ fontSize: control ? 17 : T.labelSize, color: accent ? '#e0d3ff' : T.text, wrap: false, ellipsis: true, selectable: false }}>{label}</Text></Box>;
+    return <Box onPointer={e => { if (e.button !== 'left') return; if (e.kind === 'down') { armed.current = true; setPressed(true); } if (e.kind === 'up') { setPressed(false); if (armed.current) onClick(); armed.current = false; } }} onMouseEnter={() => root.setPointerShape('pointer')} onMouseLeave={() => { armed.current = false; setPressed(false); root.setPointerShape('default'); }} style={{ width: control ? T.controlSize : '100%', height: control ? T.controlSize : 36, flexShrink: 0, padding: { left: control ? 0 : 10, right: control ? 0 : 10 }, cornerRadius: 6, background: pressed ? '#52617c' : accent ? verticalGradient('#52436e', '#352d4f') : undefined, hoverBackground: danger ? '#873e51' : '#40516d', alignItems: 'center', justifyContent: control ? 'center' : 'start', overflow: 'hidden' }}>{children ?? <Text style={{ fontSize: control ? 17 : T.labelSize, color: accent ? '#e0d3ff' : T.text, wrap: false, ellipsis: true, selectable: false }}>{label}</Text>}</Box>;
   }
   function DesktopIcon({ app, index }: { app: DesktopState['apps'][number]; index: number }) {
     return <IconFrame name={app.name} icon={app.icon} available={!!app.available} index={index} desktopHeight={root.info.height} font={uiFont} selected={selectedIcon === app.id} onSelect={() => { selectedIcon = app.id; menu = null; update(); }} onLaunch={() => launch(app.id)} />;
@@ -152,7 +152,7 @@ export function attach(name: string) {
         <Text style={{ width: Math.max(0, r.width - 2 - T.controlSize * 3 - 48), fontSize: T.labelSize, color: focused ? T.text : T.muted, ellipsis: true, wrap: false, selectable: false }}>{w.title}</Text>
       </Box>
       <Button control label="−" onClick={() => act(w.id, 'minimize')} />
-      <Button control label={w.maximized ? '▣' : '□'} onClick={() => act(w.id, 'maximize')} />
+      <Button control onClick={() => act(w.id, 'maximize')}><MaximizeGlyph maximized={w.maximized} /></Button>
       <Button control danger label="×" onClick={() => act(w.id, 'close')} />
     </HeaderFrame>;
   }

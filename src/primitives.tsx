@@ -14,6 +14,13 @@ export function AppGlyph({ icon, size = 20, color = T.accent }: { icon: string; 
   return <Text style={{ fontSize: icon.length > 1 ? size * 0.8 : size, color, wrap: false, selectable: false }}>{icon}</Text>;
 }
 
+/** Draw window controls directly so they do not depend on font glyph coverage. */
+export function MaximizeGlyph({ maximized }: { maximized: boolean }) {
+  return <Path style={{ width: 16, height: 16, flexShrink: 0 }} viewBox={16}
+    d={maximized ? 'M 5 4 L 5 2 L 14 2 L 14 11 L 12 11 M 2 5 L 11 5 L 11 14 L 2 14 Z' : 'M 3 3 L 13 3 L 13 13 L 3 13 Z'}
+    stroke={{ width: 1.25, color: T.text, cap: 'round', join: 'round' }} />;
+}
+
 /** Presentation primitives deliberately do not own processes or session state. */
 export function Desktop({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
   return <Box style={{ width, height, background: { from: [0, 0], to: [1, 1], stops: [{ at: 0, color: appearance.colors.desktopStart }, { at: 0.55, color: appearance.colors.desktopMiddle }, { at: 1, color: appearance.colors.desktopEnd }] } }}>{children}</Box>;
