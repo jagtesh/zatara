@@ -1,5 +1,5 @@
 {
-  "name": "@zatara/desktop",
+  "name": "@zatara-dev/desktop",
   "version": "0.1.0",
   "description": "A persistent desktop for Pixel apps",
   "scripts": {
