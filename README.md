@@ -21,7 +21,7 @@ backend is planned, not included in this release.
 Install from npm:
 
 ```sh
-npm install -g zatara
+npm install -g @zatara/desktop
 zatara
 ```
 
