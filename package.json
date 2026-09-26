@@ -1,0 +1,38 @@
+{
+  "name": "zatara",
+  "version": "0.1.0",
+  "description": "A persistent desktop for Pixel apps",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && node scripts/build.cjs",
+    "start": "node dist/cli.js",
+    "test": "npm run build && tsx --test test/*.test.ts",
+    "check": "tsc --noEmit",
+    "bench": "npm run build && tsx scripts/bench.ts",
+    "postinstall": "node scripts/postinstall.cjs",
+    "setup:apps": "node scripts/setup-apps.cjs",
+    "test:apps": "npm run build && tsx scripts/apps-smoke.ts",
+    "bench:transport": "npm run build && tsx scripts/terminal-bench.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@xterm/headless": "6.0.0",
+    "@zenbu-labs/pixel": "0.0.15",
+    "node-pty": "1.1.0",
+    "react": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.3",
+    "@types/pngjs": "6.0.5",
+    "@types/react": "18.3.28",
+    "pngjs": "7.0.0",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2"
+  },
+  "private": true,
+  "bin": {
+    "zatara": "dist/cli.js"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "benchmark": {
+    "host": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "release": "27.2.0",
+      "cpu": "Apple M5 Pro",
+      "node": "v22.23.2",
+      "pixel": "0.0.15",
+      "viewport": [
+        1200,
+        792
+      ]
+    },
+    "results": [
+      {
+        "name": "idle, shell + Pixel app",
+        "elapsedMs": 3017.812792,
+        "frames": 2,
+        "rawLocalSurfaceBytes": 7603200,
+        "rssMiB": 304.953125,
+        "cpuPercentOneCore": 1.9881948992679612,
+        "processCount": 4
+      },
+      {
+        "name": "drag, 12 mouse updates per gesture",
+        "elapsedMs": 1843.207167,
+        "frames": 48,
+        "rawLocalSurfaceBytes": 182476800,
+        "rssMiB": 318.15625,
+        "cpuPercentOneCore": 42.86007640073373,
+        "processCount": 4
+      },
+      {
+        "name": "counter clicks",
+        "elapsedMs": 882.6253339999994,
+        "frames": 10,
+        "rawLocalSurfaceBytes": 38016000,
+        "rssMiB": 320,
+        "cpuPercentOneCore": 33.98950703583594,
+        "processCount": 4
+      },
+      {
+        "name": "50000 lines of shell output",
+        "elapsedMs": 153.58566700000029,
+        "frames": 7,
+        "rawLocalSurfaceBytes": 26611200,
+        "rssMiB": 332.15625,
+        "cpuPercentOneCore": 130.2204847018696,
+        "processCount": 4
+      },
+      {
+        "name": "idle after output",
+        "elapsedMs": 3015.8947080000007,
+        "frames": 0,
+        "rawLocalSurfaceBytes": 0,
+        "rssMiB": 330.859375,
+        "cpuPercentOneCore": 0.9947296873601603,
+        "processCount": 4
+      }
+    ],
+    "inputToCapturedFrameMs": {
+      "p50": 24.869416999999885,
+      "p95": 25.583832999999686,
+      "samples": 10,
+      "method": "native host frame callback"
+    },
+    "caveats": [
+      "Native offscreen Pixel host, not a physical Ghostty display.",
+      "Raw local BGRA surface bytes are not SSH bandwidth.",
+      "Frame capture latency ends at the native host frame callback, not at the physical display.",
+      "RSS sum can double-count shared pages. CPU derives from ps accumulated process CPU time."
+    ],
+    "serverMetrics": {
+      "startedAt": 1790432750050,
+      "frames": 22,
+      "frameBytes": 23417856,
+      "notifications": 69,
+      "coalesced": 22,
+      "inputEvents": 21,
+      "frameAfterInputMs": [
+        1.9714169999997466,
+        2.018000000000029,
+        2.45508400000017,
+        2.9465420000005906,
+        3.643542000000707,
+        3.251459000000068,
+        3.3273330000001806,
+        3.0435410000000047,
+        2.3622919999997976,
+        3.4255000000002838
+      ]
+    }
+  },
+  "terminal-bandwidth": {
+    "transport": "inline Kitty over local PTY; emulated terminal replies",
+    "viewport": [
+      1200,
+      792
+    ],
+    "idle": {
+      "durationMs": 2001,
+      "bytes": 0
+    },
+    "drag": {
+      "durationMs": 1298,
+      "bytes": 3278829,
+      "frames": 20
+    },
+    "totalBytes": 3627769,
+    "caveat": "No real SSH connection, network shaping, or physical display. Measures actual encoded terminal bytes."
+  },
+  "apps-verification": {
+    "result": "passed",
+    "workload": "Static local browser page + terminal-code. 3-second idle sample after 3-second settling period.",
+    "memory": {
+      "rssMiB": 2637.828125,
+      "processCount": 20,
+      "idleFrames": 0,
+      "idleCpuPercentOneCore": 13.89151440808079
+    },
+    "windows": [
+      {
+        "id": "787f6f51",
+        "app": "browser",
+        "title": "Scrolled: 100 / browser_kept",
+        "kind": "pixel",
+        "pid": 90540,
+        "minimized": false,
+        "maximized": false,
+        "status": "Running",
+        "x": 145,
+        "y": 40,
+        "width": 690,
+        "height": 480,
+        "order": 0
+      },
+      {
+        "id": "d5088b68",
+        "app": "code",
+        "title": "\u25cf // Zatara: an independent Pixel applicat \u2022 Untitled-2",
+        "kind": "pixel",
+        "pid": 90551,
+        "minimized": false,
+        "maximized": false,
+        "status": "Running",
+        "x": 420,
+        "y": 210,
+        "width": 750,
+        "height": 480,
+        "order": 1
+      }
+    ],
+    "frames": 148,
+    "frameBytes": 562636800,
+    "logDirectory": "/tmp/zt-CS2mgI"
+  }
+}

@@ -1,0 +1,23 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Zatara browser test</title>
+<style>
+  :root { color-scheme: dark; font: 15px system-ui; color: #dce7fa; background: #111a2b; }
+  body { max-width: 680px; margin: auto; padding: 32px; }
+  small { color: #a78bfa; letter-spacing: .15em; } h1 { font-size: 36px; letter-spacing: -.04em; }
+  p { color: #aabbd7; line-height: 1.7; } input { background: #23324b; color: white; border: 1px solid #596581; padding: 14px; border-radius: 10px; width: 85%; }
+  section { margin: 32px 0; padding: 24px; background: #1c2940; border-radius: 14px; }
+</style>
+<small>ZATARA / BROWSER</small>
+<h1>A window onto the web.</h1>
+<p>This page is running in the real terminal-browser. Its process belongs to your persistent desktop. It is intentionally static for reproducible performance measurements.</p>
+<input aria-label="Browser test input" placeholder="Type something, then switch windows">
+<section><h2>Independent</h2><p>Move this window without moving the editor. Each application owns its state, while Zatara owns placement and focus.</p></section>
+<section><h2>Persistent</h2><p>Detach the desktop, reconnect, and continue where you left off. A network connection is not a session lifetime.</p></section>
+<section><h2>Mouse first</h2><p>Drag, resize, minimize and restore. Use the taskbar to bring a window forward.</p></section>
+<section><h2>Measured</h2><p>No animation, video, or external assets on this page. This makes idle CPU and scroll measurements reproducible.</p></section>
+<script>
+  const input = document.querySelector('input');
+  input.addEventListener('input', () => document.title = 'Typed: ' + input.value);
+  window.addEventListener('scroll', () => document.title = 'Scrolled: ' + Math.round(scrollY) + ' / ' + input.value);
+</script>
