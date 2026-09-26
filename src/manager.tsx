@@ -1,30 +1,22 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import React, { useEffect, useRef, useState } from 'react';
-import { Box, Text as PixelText, TextProps, Input, createRoot, NodeHandle } from './pixel';
+import { useEffect, useRef, useState } from 'react';
+import { Box, TextProps, Input, NodeHandle } from './pixel';
 import { request } from './ipc';
 import { ensure, listSessions, SessionInfo } from './sessions';
+import type { WindowOperation } from './model';
 import { TaskInfo } from './tasks';
-import { theme as T, verticalGradient, applyAppearance } from './theme';
-import { watchConfig } from './config';
-let configError = '';
+import { theme as T, verticalGradient } from './theme';
+import { AppText, runAppWindow, useAppWindow } from './app-window';
 const mode = process.argv[2] === 'sessions' ? 'sessions' : 'tasks';
-const session = process.env.ZATARA_SESSION ?? path.basename(process.env.ZATARA_HOST ?? '').replace(/-pixel\.sock$/, '');
-let focused = false, notifyFocus = (_: boolean) => {}, font = 0;
-const root = createRoot({ host: { socket: process.env.ZATARA_HOST!, pane: process.env.ZATARA_PANE!, name: mode === 'sessions' ? 'Sessions' : 'Task Manager' }, devtools: false,
-  onFocus(value) { focused = value; notifyFocus(value); }, onResize() { root.render(<Manager />); }, onHostClosed: () => process.exit(0),
-});
-root.setTitle(mode === 'sessions' ? 'Session Manager' : `Task Manager · ${session}`);
-function Text(props: TextProps) { return <PixelText {...props} style={{ font, fontSize: T.labelSize, color: T.text, wrap: false, ellipsis: true, selectable: false, ...props.style }} />; }
+function Text(props: TextProps) { return <AppText {...props} style={{ fontSize: T.labelSize, color: T.text, wrap: false, ellipsis: true, selectable: false, ...props.style }} />; }
 function Button({ label, action, danger = false, disabled = false }: { label: string; action(): void; danger?: boolean; disabled?: boolean }) {
   return <Box onClick={() => { if (!disabled) action(); }} style={{ height: 34, padding: { left: 10, right: 10 }, alignItems: 'center', cornerRadius: 6, background: disabled ? '#242e3e' : verticalGradient(danger ? '#733c51' : '#39465f', danger ? '#4c2b3b' : '#26344b'), hoverBackground: disabled ? '#242e3e' : danger ? '#93465c' : '#4b5b78', flexShrink: 0 }}><Text style={{ color: disabled ? '#697a95' : T.text }}>{label}</Text></Box>;
 }
 function Manager() {
-  const [active, setActive] = useState(focused), [sessions, setSessions] = useState<SessionInfo[]>([]), [tasks, setTasks] = useState<TaskInfo[]>([]);
+  const { session, focused: active, viewport, configError } = useAppWindow();
+  const [sessions, setSessions] = useState<SessionInfo[]>([]), [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [selected, select] = useState(mode === 'sessions' ? session : ''), [newName, setNewName] = useState('');
   const [error, setError] = useState(''), [notice, setNotice] = useState(''), [confirmation, confirm] = useState<{ label: string; run(): Promise<void> } | null>(null);
   const [working, setWorking] = useState(false), refreshing = useRef(false), acting = useRef(false), scroll = useRef<NodeHandle>(null), offset = useRef(0);
-  notifyFocus = setActive;
   async function refresh() {
     if (refreshing.current) return;
     refreshing.current = true;
@@ -42,10 +34,10 @@ function Manager() {
     finally { acting.current = false; setWorking(false); }
   }
   const selectedSession = sessions.find(s => s.name === selected), selectedTask = tasks.find(t => t.id === selected);
-  const width = root.info.width, compact = width < 570;
-  const listHeight = Math.max(44, root.info.height - (mode === 'sessions' ? 230 : 202));
+  const width = viewport.width, compact = width < 570;
+  const listHeight = Math.max(44, viewport.height - (mode === 'sessions' ? 230 : 202));
   const rows = mode === 'sessions' ? sessions : tasks;
-  async function taskAction(op: string) { if (!selectedTask) return; await request(session, { type: 'action', id: selectedTask.id, op }); }
+  async function taskAction(op: Exclude<WindowOperation, 'move'>) { if (!selectedTask) return; await request(session, { type: 'action', id: selectedTask.id, op }); }
   function terminateSession() {
     if (!selectedSession) return;
     const chosen = selectedSession;
@@ -92,7 +84,4 @@ function Manager() {
     <Text style={{ fontSize: Math.max(10, T.labelSize - 1), color: (configError || error) ? '#ffb7c7' : confirmation ? '#f9bc75' : T.muted, wrap: true }}>{configError || error || confirmation?.label || notice || (mode === 'tasks' ? 'CPU: one core = 100%. RSS: process-tree sum; shared backends outside the tree are excluded.' : 'End session terminates its apps. Detach preserves them.')}</Text>
   </Box>;
 }
-root.render(<Manager />);
-if (fs.existsSync('/System/Library/Fonts/SFNS.ttf')) void root.registerFont('/System/Library/Fonts/SFNS.ttf').then(value => { font = value; root.render(<Manager />); });
-const stopConfig = watchConfig(next => { applyAppearance(next); root.render(<Manager />); }, message => { if (configError !== message) { configError = message; root.render(<Manager />); } });
-process.on('SIGTERM', () => { stopConfig(); root.stop(); process.exit(0); });
+runAppWindow({ name: mode === 'sessions' ? 'Sessions' : 'Task Manager', title: mode === 'sessions' ? 'Session Manager' : `Task Manager · ${process.env.ZATARA_SESSION}`, appearance: 'system', component: Manager });

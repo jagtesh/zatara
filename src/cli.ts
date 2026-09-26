@@ -29,7 +29,7 @@ async function main() {
     (await import('./desktop.js')).attach(name); return;
   }
   if (op === 'launch') { await ensure(name); console.log(JSON.stringify(await request(name, { type: 'launch', app: arg || 'demo' }))); return; }
-  if (['detach', 'kill', 'inspect'].includes(op)) { console.log(JSON.stringify(await request(name, { type: op }), null, 2)); return; }
+  if (op === 'detach' || op === 'kill' || op === 'inspect') { console.log(JSON.stringify(await request(name, { type: op }), null, 2)); return; }
   throw new Error(`Unknown command: ${op}. Use --help.`);
 }
 main().catch(e => { console.error(`zatara: ${e.message}`); process.exitCode = 1; });

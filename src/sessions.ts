@@ -7,15 +7,15 @@ export async function ensure(name: string) {
   try { await request(name, { type: 'inspect' }); return; } catch {}
   const sock = sessionPath(name);
   const lock = sock + '.starting';
-  try { fs.mkdirSync(lock, { mode: 0o700 }); } catch (e: any) {
-    if (e.code !== 'EEXIST') throw e;
+  try { fs.mkdirSync(lock, { mode: 0o700 }); } catch (e) {
+    if (!(e instanceof Error && 'code' in e && e.code === 'EEXIST')) throw e;
     for (let i = 0; i < 100; i++) { await new Promise(r => setTimeout(r, 50)); try { await request(name, { type: 'inspect' }); return; } catch {} }
     throw new Error(`Another start did not finish. Inspect ${lock} and the session log.`);
   }
   try {
   if (fs.existsSync(sock + '.pid')) {
     const pid = Number(fs.readFileSync(sock + '.pid', 'utf8'));
-    try { process.kill(pid, 0); throw new Error(`Session service ${pid} exists but is not responding`); } catch (e: any) { if (e.code !== 'ESRCH') throw e; }
+    try { process.kill(pid, 0); throw new Error(`Session service ${pid} exists but is not responding`); } catch (e) { if (!(e instanceof Error && 'code' in e && e.code === 'ESRCH')) throw e; }
   }
   fs.rmSync(sock, { force: true });
   const log = fs.openSync(path.join(runtime, name + '.log'), 'a', 0o600);

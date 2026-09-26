@@ -1,18 +1,19 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import fs from 'node:fs';
 import net from 'node:net';
-import { Box, Text as PixelText, TextProps, createRoot, PixelRoot, Surface, PointerEvent, DragEvent, TextSpan, NodeHandle } from './pixel';
-import { DesktopState, WindowState, Rect, bounds, contentSize, BAR, TITLE, action as reduce } from './model';
-import { Desktop as DesktopFrame, AppWindow as WindowFrame, TitleBar as HeaderFrame, Taskbar as BarFrame, DesktopIcon as IconFrame, AppGlyph, MaximizeGlyph } from './primitives';
+import { Box, Text as PixelText, TextProps, createRoot, PixelRoot, Surface, PointerEvent, BoxProps, TextSpan, NodeHandle } from './pixel';
+import { DesktopState, WindowState, WindowAction, bounds, BAR, TITLE, action as reduce } from './model';
+import { Desktop as DesktopFrame, Taskbar as BarFrame, DesktopIcon as IconFrame, AppGlyph } from './primitives';
+import { WindowFrame } from './window-frame';
 import { flattenGuestFrame } from './pixel-frame';
 import { Screen } from './terminal';
-import { lines, send, sessionPath } from './ipc';
+import { lines, sendCommand as send, sessionPath } from './ipc';
 import { theme as T, verticalGradient, applyAppearance } from './theme';
 import { appearance, watchConfig } from './config';
+import { Frame, ClientCommand, ServerMessage, decodeMessage } from './protocol';
 import { contains, menuRect, taskLayout } from './layout';
 let uiFont = 0;
 function Text(props: TextProps) { return <PixelText {...props} style={{ font: uiFont, ...props.style }} />; }
-type Frame = { path: string; width: number; height: number; seq: number };
 type Menu = { x: number; y: number; id?: string; overflow?: boolean };
 export function attach(name: string) {
   let socket = net.connect(sessionPath(name));
@@ -25,10 +26,10 @@ export function attach(name: string) {
   let tooltip: { x: number; title: string } | null = null;
   const ordered = () => [...(state?.windows ?? [])].sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
   const taskName = (w: WindowState) => { const peers = ordered().filter(p => p.app === w.app); return (state?.apps.find(a => a.id === w.app)?.name ?? w.app) + (peers.length > 1 ? ` ${peers.findIndex(p => p.id === w.id) + 1}` : ''); };
-  const command = (m: unknown) => send(socket, m);
-  const act = (id: string, op: string, rect?: Rect) => {
-    if (state) reduce(state, id, op, rect);
-    command({ type: 'action', id, op, rect }); update();
+  const command = (m: ClientCommand) => send(socket, m);
+  const act = (id: string, action: WindowAction) => {
+    if (state) reduce(state, id, action);
+    command({ type: 'action', id, ...action }); update();
   };
   const launch = (app: string) => { menu = null; tooltip = null; command({ type: 'launch', app }); update(); };
   function finish(code = 0) {
@@ -80,14 +81,14 @@ export function attach(name: string) {
   });
   initialSocket.on('error', e => { if (socket === initialSocket) { process.stderr.write(e.message + '\n'); finish(1); } });
   initialSocket.on('close', () => { if (socket === initialSocket) finish(); });
-  lines(initialSocket, m => { if (socket === initialSocket) receive(m); });
-  function receive(m: any) {
+  lines(initialSocket, decodeMessage, m => { if (socket === initialSocket) receive(m); });
+  function receive(m: ServerMessage) {
     if (m.type === 'switch') { void switchSession(m.session); return; }
     if (m.type === 'state') {
       state = m.state;
       for (const [id, surface] of surfaces) if (!state!.windows.some(w => w.id === id)) { surface.close(); surfaces.delete(id); screens.delete(id); frames.delete(id); }
     }
-    if (m.type === 'screen') screens.set(m.id, m.screen);
+    if (m.type === 'screen' && m.screen) screens.set(m.id, m.screen);
     if (m.type === 'frame') { frames.set(m.id, m.frame); present(m.id, m.frame); return; }
     if (m.type === 'error') error = m.error;
     if (m.type === 'clipboard') root?.setClipboard(m.text);
@@ -105,7 +106,7 @@ export function attach(name: string) {
         candidate.on('connect', () => send(candidate, { type: 'attach', width: root.info.width, height: root.info.height, cell: { width: root.info.cellWidth, height: root.info.cellHeight }, colors: root.info.colors }));
         candidate.on('error', e => { if (!adopted) { clearTimeout(timeout); reject(e); } });
         candidate.on('close', () => { clearTimeout(timeout); if (adopted && socket === candidate) finish(); else if (!adopted) reject(new Error('Session connection closed')); });
-        lines(candidate, m => {
+        lines(candidate, decodeMessage, m => {
           if (!adopted) {
             if (m.type === 'error') { candidate.destroy(); reject(new Error(m.error)); return; }
             if (m.type !== 'state') return;
@@ -125,40 +126,17 @@ export function attach(name: string) {
   process.on('SIGTERM', () => finish()); process.on('SIGHUP', () => finish());
   process.on('SIGWINCH', () => root?.nudgeResize());
 
-  function Button({ label, children, onClick, accent = false, control = false, danger = false }: { label?: string; children?: React.ReactNode; onClick(): void; accent?: boolean; control?: boolean; danger?: boolean }) {
+  function Button({ label, onClick, accent = false, danger = false }: { label: string; onClick(): void; accent?: boolean; danger?: boolean }) {
     const [pressed, setPressed] = useState(false), armed = useRef(false);
-    return <Box onPointer={e => { if (e.button !== 'left') return; if (e.kind === 'down') { armed.current = true; setPressed(true); } if (e.kind === 'up') { setPressed(false); if (armed.current) onClick(); armed.current = false; } }} onMouseEnter={() => root.setPointerShape('pointer')} onMouseLeave={() => { armed.current = false; setPressed(false); root.setPointerShape('default'); }} style={{ width: control ? T.controlSize : '100%', height: control ? T.controlSize : 36, flexShrink: 0, padding: { left: control ? 0 : 10, right: control ? 0 : 10 }, cornerRadius: 6, background: pressed ? '#52617c' : accent ? verticalGradient('#52436e', '#352d4f') : undefined, hoverBackground: danger ? '#873e51' : '#40516d', alignItems: 'center', justifyContent: control ? 'center' : 'start', overflow: 'hidden' }}>{children ?? <Text style={{ fontSize: control ? 17 : T.labelSize, color: accent ? '#e0d3ff' : T.text, wrap: false, ellipsis: true, selectable: false }}>{label}</Text>}</Box>;
+    return <Box onPointer={e => { if (e.button !== 'left') return; if (e.kind === 'down') { armed.current = true; setPressed(true); } if (e.kind === 'up') { setPressed(false); if (armed.current) onClick(); armed.current = false; } }} onMouseEnter={() => root.setPointerShape('pointer')} onMouseLeave={() => { armed.current = false; setPressed(false); root.setPointerShape('default'); }} style={{ width: '100%', height: 36, flexShrink: 0, padding: { left: 10, right: 10 }, cornerRadius: 6, background: pressed ? '#52617c' : accent ? verticalGradient('#52436e', '#352d4f') : undefined, hoverBackground: danger ? '#873e51' : '#40516d', alignItems: 'center', justifyContent: 'start', overflow: 'hidden' }}><Text style={{ fontSize: T.labelSize, color: accent ? '#e0d3ff' : T.text, wrap: false, ellipsis: true, selectable: false }}>{label}</Text></Box>;
   }
   function DesktopIcon({ app, index }: { app: DesktopState['apps'][number]; index: number }) {
     return <IconFrame name={app.name} icon={app.icon} available={!!app.available} index={index} desktopHeight={root.info.height} font={uiFont} selected={selectedIcon === app.id} onSelect={() => { selectedIcon = app.id; menu = null; update(); }} onLaunch={() => launch(app.id)} />;
   }
 
-  function TitleBar({ w, r }: { w: WindowState; r: Rect }) {
-    const drag = useRef<{ x: number; y: number; r: Rect } | null>(null), last = useRef(0);
-    const focused = state?.focused === w.id;
-    return <HeaderFrame focused={!!focused} maximized={w.maximized} width={r.width}>
-      <Box style={{ width: Math.max(0, r.width - 2 - T.controlSize * 3), flexShrink: 0, overflow: 'hidden', height: TITLE, alignItems: 'center', padding: { left: 13 }, gap: 8 }}
-        onDrag={e => {
-          if (process.env.ZATARA_TRACE) console.error('drag', w.id, e);
-          if (e.phase === 'start') { drag.current = { x: e.x, y: e.y, r: { ...r } }; menu = null; act(w.id, 'focus'); }
-          const d = drag.current;
-          if (d && !w.maximized && e.phase !== 'start') act(w.id, 'move', { ...d.r, x: d.r.x + e.x - d.x, y: d.r.y + e.y - d.y });
-          if (e.phase === 'end') {
-            if (d && Math.abs(e.x - d.x) + Math.abs(e.y - d.y) < 4) { const now = Date.now(); if (now - last.current < 350) { act(w.id, 'maximize'); last.current = 0; } else last.current = now; } else last.current = 0;
-            drag.current = null;
-          }
-        }}>
-        <AppGlyph icon={state?.apps.find(a => a.id === w.app)?.icon ?? '◈'} size={14} color={focused ? T.accent : T.muted} />
-        <Text style={{ width: Math.max(0, r.width - 2 - T.controlSize * 3 - 48), fontSize: T.labelSize, color: focused ? T.text : T.muted, ellipsis: true, wrap: false, selectable: false }}>{w.title}</Text>
-      </Box>
-      <Button control label="−" onClick={() => act(w.id, 'minimize')} />
-      <Button control onClick={() => act(w.id, 'maximize')}><MaximizeGlyph maximized={w.maximized} /></Button>
-      <Button control danger label="×" onClick={() => act(w.id, 'close')} />
-    </HeaderFrame>;
-  }
   function ShellView({ w, width, height }: { w: WindowState; width: number; height: number }) {
     const screen = screens.get(w.id), cw = root.info.cellWidth, ch = root.info.cellHeight;
-    return <Box style={{ width, height, background: '#111827', overflow: 'hidden', flexDirection: 'column' }} onPointer={e => forward(w, e)} onMouseMove={e => command({ type: 'input', id: w.id, event: { type: 'mouse', kind: 'move', button: 'none', mods: { ctrl: false, alt: false, shift: false, super: false }, ...e } })} onWheel={e => command({ type: 'input', id: w.id, event: { type: 'wheel', ...e } })}>
+    return <Box style={{ width, height, background: '#111827', overflow: 'hidden', flexDirection: 'column' }} {...contentInput(w)}>
       {screen?.rows.map((cells, y) => {
         let text = '', spans: TextSpan[] = [], byte = 0;
         for (const c of cells) {
@@ -170,42 +148,35 @@ export function attach(name: string) {
       {screen && state?.focused === w.id && screen.cursor.y >= 0 && <Box style={{ position: 'absolute', inset: { left: screen.cursor.x * cw, top: screen.cursor.y * ch }, width: cw, height: ch, background: '#a78bfa55', border: { bottom: [2, '#c4b5fd'] } }} />}
     </Box>;
   }
+  function contentInput(w: WindowState): Pick<BoxProps, 'onPointer' | 'onMouseMove' | 'onWheel'> {
+    return {
+      onPointer: e => forward(w, e),
+      onMouseMove: e => command({ type: 'input', id: w.id, event: { type: 'mouse', kind: 'move', button: 'none', mods: { ctrl: false, alt: false, shift: false, super: false }, ...e } }),
+      onWheel: e => command({ type: 'input', id: w.id, event: { type: 'wheel', ...e } }),
+    };
+  }
   function forward(w: WindowState, e: PointerEvent) {
-    if (e.kind === 'down') { menu = null; act(w.id, 'focus'); }
+    if (e.kind === 'down') { menu = null; act(w.id, { op: 'focus' }); }
     command({ type: 'input', id: w.id, event: { type: 'mouse', ...e } });
   }
   function GuestView({ w, width, height }: { w: WindowState; width: number; height: number }) {
     const [surface] = useState(() => { const s = root.createSurface(); surfaces.set(w.id, s); return s; });
     useEffect(() => { const f = frames.get(w.id); if (f) present(w.id, f); return () => { surface.close(); surfaces.delete(w.id); }; }, []);
-    return <Box surface={surface} style={{ width, height, background: '#131c2d' }} onPointer={e => forward(w, e)} onMouseMove={e => command({ type: 'input', id: w.id, event: { type: 'mouse', kind: 'move', button: 'none', mods: { ctrl: false, alt: false, shift: false, super: false }, ...e } })} onWheel={e => command({ type: 'input', id: w.id, event: { type: 'wheel', ...e } })} />;
-  }
-  function ResizeHandle({ w, r, edge }: { w: WindowState; r: Rect; edge: string }) {
-    const start = useRef<{ x: number; y: number; r: Rect } | null>(null);
-    const right = edge.includes('e'), bottom = edge.includes('s'), left = edge.includes('w'), top = edge.includes('n');
-    const horizontal = edge === 'n' || edge === 's', vertical = edge === 'e' || edge === 'w';
-    return <Box style={{ position: 'absolute', inset: { left: right ? r.width - 7 : 0, top: bottom ? r.height - 7 : 0 }, width: horizontal ? r.width - 7 : 7, height: vertical ? r.height - 7 : 7 }} onMouseEnter={() => root.setPointerShape(horizontal ? 'ns-resize' : vertical ? 'ew-resize' : edge === 'ne' || edge === 'sw' ? 'nesw-resize' : 'nwse-resize')} onMouseLeave={() => root.setPointerShape('default')} onDrag={(e: DragEvent) => {
-      if (e.phase === 'start') { start.current = { x: e.x, y: e.y, r: { ...r } }; act(w.id, 'focus'); }
-      const d = start.current;
-      if (d && e.phase !== 'start') { const dx = e.x - d.x, dy = e.y - d.y; act(w.id, 'move', { x: d.r.x + (left ? dx : 0), y: d.r.y + (top ? dy : 0), width: d.r.width + (right ? dx : left ? -dx : 0), height: d.r.height + (bottom ? dy : top ? -dy : 0) }); }
-      if (e.phase === 'end') start.current = null;
-    }} />;
+    return <Box surface={surface} style={{ width, height, background: '#131c2d' }} {...contentInput(w)} />;
   }
   function AppWindow({ w }: { w: WindowState }) {
-    const r = bounds(w, state!), { width: cw, height: ch } = contentSize(r, { width: root.info.cellWidth, height: root.info.cellHeight });
-    return <WindowFrame rect={r} focused={state?.focused === w.id} minimized={w.minimized} maximized={w.maximized}>
-      <TitleBar w={w} r={r} />
-      <Box style={{ margin: { left: 2, top: 1 }, width: cw, height: ch, overflow: 'hidden' }}>
-        {w.kind === 'shell' ? <ShellView w={w} width={cw} height={ch} /> : <GuestView w={w} width={cw} height={ch} />}
-        {w.status !== 'Running' && <Box style={{ position: 'absolute', inset: { top: 0, left: 0 }, width: cw, padding: 14, background: '#25314b' }}><Text style={{ fontSize: T.labelSize, color: T.text, wrap: true }}>{w.status}</Text></Box>}
-      </Box>
-      {!w.maximized && ['n','s','e','w','se','sw','ne','nw'].map(edge => <ResizeHandle key={edge} w={w} r={r} edge={edge} />)}
+    return <WindowFrame window={w} desktop={state!} cell={{ width: root.info.cellWidth, height: root.info.cellHeight }} icon={state!.apps.find(a => a.id === w.app)?.icon ?? '◈'} font={uiFont} onAction={action => act(w.id, action)} onInteract={() => { menu = null; }} onPointerShape={shape => root.setPointerShape(shape)}>
+      {({ width, height }) => <>
+        {w.kind === 'shell' ? <ShellView w={w} width={width} height={height} /> : <GuestView w={w} width={width} height={height} />}
+        {w.status !== 'Running' && <Box style={{ position: 'absolute', inset: { top: 0, left: 0 }, width, padding: 14, background: '#25314b' }}><Text style={{ fontSize: T.labelSize, color: T.text, wrap: true }}>{w.status}</Text></Box>}
+      </>}
     </WindowFrame>;
   }
   function Taskbar() {
     const tasks = ordered(), layout = taskLayout(root.info.width, root.info.height, tasks.length);
     return <BarFrame>
       <Box style={{ position: 'absolute', inset: { left: layout.launcher.x, top: 4 }, width: layout.launcher.width, height: 36 }}><Button label={layout.compact ? "Z" : "Zatara"} accent onClick={() => context(12, root.info.height - BAR)} /></Box>
-      {layout.entries.map((r, i) => { const w = tasks[i], active = state?.focused === w.id && !w.minimized; return <Box key={w.id} onClick={() => { menu = null; tooltip = null; act(w.id, 'focus'); }} onMouseEnter={() => { tooltip = { x: r.x, title: w.title }; root.setPointerShape('pointer'); update(); }} onMouseLeave={() => { tooltip = null; root.setPointerShape('default'); update(); }} style={{ position: 'absolute', inset: { left: r.x, top: 4 }, width: r.width, height: r.height, flexShrink: 0, cornerRadius: 6, padding: { left: 9, right: 9 }, alignItems: 'center', gap: 7, overflow: 'hidden', background: verticalGradient(active ? '#4a4263' : '#30405a', active ? '#302b48' : '#1f2c40'), hoverBackground: '#435470', border: { top: [1, active ? '#847499' : '#4a5b76'], bottom: [2, w.minimized ? '#40506b' : active ? T.accent : '#6886a8'] } }}>
+      {layout.entries.map((r, i) => { const w = tasks[i], active = state?.focused === w.id && !w.minimized; return <Box key={w.id} onClick={() => { menu = null; tooltip = null; act(w.id, { op: 'focus' }); }} onMouseEnter={() => { tooltip = { x: r.x, title: w.title }; root.setPointerShape('pointer'); update(); }} onMouseLeave={() => { tooltip = null; root.setPointerShape('default'); update(); }} style={{ position: 'absolute', inset: { left: r.x, top: 4 }, width: r.width, height: r.height, flexShrink: 0, cornerRadius: 6, padding: { left: 9, right: 9 }, alignItems: 'center', gap: 7, overflow: 'hidden', background: verticalGradient(active ? '#4a4263' : '#30405a', active ? '#302b48' : '#1f2c40'), hoverBackground: '#435470', border: { top: [1, active ? '#847499' : '#4a5b76'], bottom: [2, w.minimized ? '#40506b' : active ? T.accent : '#6886a8'] } }}>
         <Box style={{ width: 20, flexShrink: 0 }}><AppGlyph size={14} icon={state!.apps.find(a => a.id === w.app)?.icon ?? '◈'} /></Box>
         <Text style={{ width: r.width - 46, fontSize: T.labelSize, color: w.minimized ? T.muted : T.text, ellipsis: true, wrap: false, selectable: false }}>{taskName(w)}</Text>
       </Box>; })}
@@ -221,7 +192,7 @@ export function attach(name: string) {
     const rows = current.id ? 3 : current.overflow ? tasks.length : state?.apps.length ?? 0;
     const r = menuRect(current.x, current.y, root.info.width, root.info.height, rows);
     return <Box ref={list} contentHeight={rows * 36 + 12} onScroll={e => { offset.current = e.offset; }} onWheel={e => { offset.current = Math.max(0, Math.min(offset.current + e.deltaY, rows * 36 + 12 - r.height)); list.current?.scrollTo(offset.current, false); }} onClickOutside={() => { menu = null; update(); }} style={{ position: 'absolute', inset: { left: r.x, top: r.y }, width: r.width, height: r.height, padding: 6, flexDirection: 'column', overflow: 'scroll', background: '#28364e', border: { width: 1, color: '#637493' }, cornerRadius: 9 }}>
-      {current.id ? ['minimize', 'maximize', 'close'].map(op => <Button key={op} danger={op === 'close'} label={op === 'maximize' && state?.windows.find(w => w.id === current.id)?.maximized ? 'Restore' : op[0].toUpperCase() + op.slice(1)} onClick={() => { menu = null; act(current.id!, op); }} />) : current.overflow ? tasks.map(w => <Button key={w.id} label={`${taskName(w)}${w.minimized ? ' · minimized' : ''}`} onClick={() => { menu = null; act(w.id, 'focus'); }} />) : state?.apps.map(app => <Button key={app.id} label={`${app.name}${app.available ? '' : ' · unavailable'}`} onClick={() => launch(app.id)} />)}
+      {current.id ? (['minimize', 'maximize', 'close'] as const).map(op => <Button key={op} danger={op === 'close'} label={op === 'maximize' && state?.windows.find(w => w.id === current.id)?.maximized ? 'Restore' : op[0].toUpperCase() + op.slice(1)} onClick={() => { menu = null; act(current.id!, { op }); }} />) : current.overflow ? tasks.map(w => <Button key={w.id} label={`${taskName(w)}${w.minimized ? ' · minimized' : ''}`} onClick={() => { menu = null; act(w.id, { op: 'focus' }); }} />) : state?.apps.map(app => <Button key={app.id} label={`${app.name}${app.available ? '' : ' · unavailable'}`} onClick={() => launch(app.id)} />)}
     </Box>;
   }
   function Desktop() {

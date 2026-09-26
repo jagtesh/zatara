@@ -158,3 +158,9 @@ UI font size, desktop heading size, desktop icon size, and icon label size are
 independent. Changes reload automatically without restarting apps. See the
 [configuration reference](docs/configuration.md) for examples, color overrides,
 validation, and custom paths.
+
+### Creating an app window
+
+Use `runAppWindow` for native Pixel apps and `WindowFrameProps` for desktop
+frame changes. See [the window contracts guide](docs/window-contracts.md) for a
+minimal app, registration, typed actions, focus handling, and compiler checks.

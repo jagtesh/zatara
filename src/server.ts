@@ -7,16 +7,18 @@ import { OwnerServer, Guest } from '../node_modules/@zenbu-labs/pixel/dist/host/
 import { InstanceRecord, PROTOCOL } from '../node_modules/@zenbu-labs/pixel/dist/instances';
 import { applications } from './apps';
 import { DesktopState, WindowState, action, bounds, contentSize, constrain, focus } from './model';
-import { lines, send, sessionPath, runtime } from './ipc';
+import { lines, sendEvent as send, sessionPath, runtime } from './ipc';
 import { TaskSampler } from './tasks';
 import { Shell, keySequence } from './terminal';
-type Frame = { path: string; width: number; height: number; seq: number };
+import { Frame, decodeCommand } from './protocol';
+import type { TerminalColors } from './pixel';
 export function serve(name: string) {
   process.umask(0o077);
   const socketPath = sessionPath(name), frameDir = path.join(runtime, `${name}-frames`), guestSocket = path.join(runtime, `${name}-pixel.sock`);
   fs.mkdirSync(frameDir, { recursive: true, mode: 0o700 });
   let client: net.Socket | null = null, stopping = false, nextOrder = 0;
-  let cell = { width: 8, height: 18 }, colors = { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] };
+  let cell = { width: 8, height: 18 };
+  let colors: TerminalColors = { foreground: [220,228,245,255], background: [17,24,39,255], palette: [] };
   const state: DesktopState = { windows: [], focused: null, width: 1200, height: 800, apps: applications(), session: name, attached: false };
   const shells = new Map<string, Shell>(), guests = new Map<string, Guest>(), children = new Map<string, ChildProcess>(), records = new Map<string, InstanceRecord>();
   const frames = new Map<string, Frame>(), dirtyFrames = new Set<string>(), dirtyShells = new Set<string>();
@@ -29,7 +31,7 @@ export function serve(name: string) {
   function flush() {
     timer = null;
     if (!client) return;
-    for (const id of dirtyFrames) { const w = state.windows.find(w => w.id === id); if (w && !w.minimized) { send(client, { type: 'frame', id, frame: frames.get(id) }); metrics.notifications++; } }
+    for (const id of dirtyFrames) { const w = state.windows.find(w => w.id === id); const frame = frames.get(id); if (w && !w.minimized && frame) { send(client, { type: 'frame', id, frame }); metrics.notifications++; } }
     dirtyFrames.clear();
     for (const id of dirtyShells) { const w = state.windows.find(w => w.id === id); if (w && !w.minimized) send(client, { type: 'screen', id, screen: shells.get(id)?.snapshot() }); }
     dirtyShells.clear();
@@ -47,7 +49,7 @@ export function serve(name: string) {
     if (!w) { guest.close(); return; }
     guests.set(w.id, guest); w.status = 'Running';
     const r = bounds(w, state), { width, height } = contentSize(r, cell);
-    guest.send({ type: 'init', width, height, cols: width / cell.width, rows: height / cell.height, colors: colors as any, focused: !!client && state.focused === w.id });
+    guest.send({ type: 'init', width, height, cols: width / cell.width, rows: height / cell.height, colors, focused: !!client && state.focused === w.id });
     guest.onFrame = frame => {
       try {
         if (frame.width * frame.height > 16_000_000 || frame.width <= 0 || frame.height <= 0) return;
@@ -76,12 +78,12 @@ export function serve(name: string) {
     if (!app.available) throw new Error(app.reason);
     if (state.windows.length >= 24) throw new Error('This proof of concept supports up to 24 windows');
     const id = randomUUID().slice(0, 8), n = state.windows.length;
-    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: ['sessions', 'tasks'].includes(app.id) ? 820 : 680, height: ['sessions', 'tasks'].includes(app.id) ? 540 : 450 }, state.width, state.height) };
+    const w: WindowState = { id, app: app.id, title: app.name, kind: app.kind, pid: 0, minimized: false, maximized: false, status: 'Starting', ...constrain({ x: 160 + n % 6 * 32, y: 60 + n % 6 * 30, width: app.initialSize?.width ?? 680, height: app.initialSize?.height ?? 450 }, state.width, state.height) };
     w.order = nextOrder++;
     state.windows.push(w); focus(state, id);
     if (app.kind === 'shell') {
       let shell: Shell;
-      try { shell = new Shell(process.env.ZATARA_CWD || process.cwd(), () => { dirtyShells.add(id); schedule(); }, code => { w.status = `Exited (${code})`; changed(); }); } catch (e) { action(state, id, 'close'); changed(); throw e; }
+      try { shell = new Shell(process.env.ZATARA_CWD || process.cwd(), () => { dirtyShells.add(id); schedule(); }, code => { w.status = `Exited (${code})`; changed(); }); } catch (e) { action(state, id, { op: 'close' }); changed(); throw e; }
       shells.set(id, shell); w.pid = shell.process.pid; w.status = 'Running'; syncWindow(w);
     } else {
       // Publish a synthetic pane only to this app's environment. Its owner is
@@ -107,11 +109,11 @@ export function serve(name: string) {
     records.get(id)?.withdraw(); records.delete(id);
     frames.delete(id); dirtyFrames.delete(id); dirtyShells.delete(id); inputAt.delete(id);
     fs.rmSync(path.join(frameDir, id + '.bgra'), { force: true });
-    action(state, id, 'close'); syncFocus(); changed();
+    action(state, id, { op: 'close' }); syncFocus(); changed();
   }
   const server = net.createServer(socket => {
     socket.on('error', () => {});
-    lines(socket, m => {
+    lines(socket, decodeCommand, m => {
       if (m.type === 'attach') {
         if (client && client !== socket) { send(socket, { type: 'error', error: 'Session already attached. Use zatara detach first.' }); socket.end(); return; }
         client = socket; state.attached = true;
@@ -136,10 +138,11 @@ export function serve(name: string) {
       if (m.type === 'action') {
         const w = state.windows.find(w => w.id === m.id);
         if (m.op === 'close') closeWindow(m.id);
-        else { action(state, m.id, m.op, m.rect); if (w && (m.op === 'move' || m.op === 'maximize' || m.op === 'focus')) syncWindow(w); syncFocus(); changed(); }
+        else { action(state, m.id, m); if (w && (m.op === 'move' || m.op === 'maximize' || m.op === 'focus')) syncWindow(w); syncFocus(); changed(); }
         if (socket !== client) send(socket, { type: 'ok' }); return;
       }
-      if (m.type === 'resize' && socket === client) {
+      if (m.type === 'resize') {
+        if (socket !== client) return;
         state.width = Math.max(120, Math.min(8000, m.width)); state.height = Math.max(140, Math.min(8000, m.height));
         for (const w of state.windows) { Object.assign(w, constrain(w, state.width, state.height)); syncWindow(w); } changed(); return;
       }
@@ -154,7 +157,7 @@ export function serve(name: string) {
           if (e.type === 'text') shell.input(e.text);
           if (e.type === 'wheel' && !shell.mouse(e, cell)) { shell.scroll += Math.sign(e.deltaY) * -3; dirtyShells.add(m.id); schedule(); }
           if (e.type === 'mouse') shell.mouse(e, cell);
-        } else if (guest) guest.send(e);
+        } else if (guest) guest.send(e.type === 'text' ? { type: 'paste', text: e.text } : e);
         if (socket !== client) send(socket, { type: 'ok' });
         return;
       }

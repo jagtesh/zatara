@@ -71,3 +71,11 @@ pixels and records the matched origin and fraction in its report.
 `inspect` includes cell size and latest guest frame dimensions for diagnosis.
 Taskbar layout and context hit tests share rectangles from `src/layout.ts`.
 Decoration uses static gradients and borders, with no shadows or animation loop.
+
+## Shared window contracts
+
+See [Window and app contracts](window-contracts.md) for the standard native app
+root (`AppWindowDefinition` / `runAppWindow`), desktop frame (`WindowFrameProps`),
+and action, frame, input and IPC types. Demo and manager apps share lifecycle
+setup; all window kinds share decorations and content input mapping. Compiler
+contract tests are part of `npm run check` and `npm test`.

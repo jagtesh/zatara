@@ -1,6 +1,7 @@
 import { Terminal } from '@xterm/headless';
 import * as pty from 'node-pty';
 import type { EngineKeyEvent } from './pixel';
+import type { WindowInput, CellSize } from './protocol';
 export interface Cell { text: string; fg: string; bg: string; bold: boolean; italic: boolean; underline: boolean }
 export interface Screen { rows: Cell[][]; cursor: { x: number; y: number }; cols: number; rowCount: number; scroll: number; alternate: boolean }
 const palette = ['#17202e','#f7768e','#9ece6a','#e0af68','#7aa2f7','#bb9af7','#7dcfff','#c0caf5','#565f89','#ff9eaa','#b9f27c','#ffd08a','#a3bdff','#d7b5ff','#a4e8ff','#ffffff'];
@@ -53,9 +54,12 @@ export class Shell {
     }
     return { rows, cursor: { x: b.cursorX, y: this.scroll ? -1 : b.cursorY }, cols: this.term.cols, rowCount: this.term.rows, scroll: this.scroll, alternate: b.type === 'alternate' };
   }
-  mouse(e: any, cell: { width: number; height: number }): boolean {
+  mouse(e: Extract<WindowInput, { type: 'mouse' | 'wheel' }>, cell: CellSize): boolean {
     // xterm 6 has no public headless mouse API. Keep this pinned adapter here.
-    const mouse = (this.term as any)._core.coreMouseService;
+    const mouse = (this.term as unknown as { _core: { coreMouseService: {
+      areMouseEventsActive: boolean;
+      triggerMouseEvent(event: { col: number; row: number; x: number; y: number; button: number; action: number; ctrl: boolean; alt: boolean; shift: boolean }): boolean;
+    } } })._core.coreMouseService;
     if (!mouse.areMouseEventsActive || e.mods?.shift) return false;
     const wheel = e.type === 'wheel';
     mouse.triggerMouseEvent({ col: Math.floor(e.x / cell.width), row: Math.floor(e.y / cell.height), x: e.x + 1, y: e.y + 1,

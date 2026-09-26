@@ -1,9 +1,6 @@
-import fs from 'node:fs';
-import React, { useState } from 'react';
-import { Box, Text as PixelText, TextProps, Input, createRoot } from './pixel';
-const root = createRoot({ host: { socket: process.env.ZATARA_HOST!, pane: process.env.ZATARA_PANE!, name: 'Pixel Studio' }, devtools: false, onHostClosed: () => process.exit(0) });
-let uiFont = 0;
-function Text(props: TextProps) { return <PixelText {...props} style={{ font: uiFont, ...props.style }} />; }
+import { useState } from 'react';
+import { Box, Input } from './pixel';
+import { AppText as Text, runAppWindow } from './app-window';
 function Demo() {
   const [count, setCount] = useState(0), [text, setText] = useState('Make yourself at home.'), [accent, setAccent] = useState('#a78bfa');
   return <Box style={{ width: '100%', height: '100%', background: '#131c2d', padding: 28, flexDirection: 'column', gap: 20 }}>
@@ -19,6 +16,4 @@ function Demo() {
     <Text style={{ fontSize: 12, color: '#7184a3' }}>Native Pixel renderer · process {process.pid}</Text>
   </Box>;
 }
-if (fs.existsSync('/System/Library/Fonts/SFNS.ttf')) void root.registerFont('/System/Library/Fonts/SFNS.ttf').then(font => { uiFont = font; root.render(<Demo />); });
-else root.render(<Demo />);
-process.on('SIGTERM', () => { root.stop(); process.exit(0); });
+runAppWindow({ name: 'Pixel Studio', appearance: 'app', component: Demo });

@@ -1,4 +1,5 @@
 import net from 'node:net';
+import { ClientCommand, ServerMessage, RpcCommand, Reply, replyTypes, decodeMessage } from './protocol';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,7 +9,7 @@ export function sessionPath(name: string) {
   fs.mkdirSync(runtime, { recursive: true, mode: 0o700 });
   return path.join(runtime, name + '.sock');
 }
-export function lines(socket: net.Socket, onMessage: (message: any) => void) {
+export function lines<T>(socket: net.Socket, decode: (value: unknown) => T, onMessage: (message: T) => void) {
   let buffer = '';
   socket.setEncoding('utf8');
   socket.on('data', data => {
@@ -17,22 +18,30 @@ export function lines(socket: net.Socket, onMessage: (message: any) => void) {
     let n: number;
     while ((n = buffer.indexOf('\n')) >= 0) {
       const line = buffer.slice(0, n); buffer = buffer.slice(n + 1);
-      try { onMessage(JSON.parse(line)); } catch (e) { send(socket, { type: 'error', error: String(e) }); }
+      try { onMessage(decode(JSON.parse(line))); } catch (e) { sendEvent(socket, { type: 'error', error: String(e) }); }
     }
   });
 }
-export function send(socket: net.Socket | null, message: unknown) {
+function send(socket: net.Socket | null, message: ClientCommand | ServerMessage) {
   if (!socket || socket.destroyed) return false;
   if (socket.writableLength > 2 * 1024 * 1024) { socket.destroy(); return false; }
   return socket.write(JSON.stringify(message) + '\n');
 }
-export function request(name: string, message: unknown, timeoutMs = 4000): Promise<any> {
+export const sendCommand = (socket: net.Socket | null, message: ClientCommand) => send(socket, message);
+export const sendEvent = (socket: net.Socket | null, message: ServerMessage) => send(socket, message);
+export function request<C extends RpcCommand>(name: string, message: C, timeoutMs = 4000): Promise<Reply<C>> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(sessionPath(name));
     const timeout = setTimeout(() => socket.destroy(new Error('Session request timed out')), timeoutMs);
-    socket.on('connect', () => send(socket, message));
+    socket.on('connect', () => sendCommand(socket, message));
     socket.on('error', reject);
     socket.on('close', () => { clearTimeout(timeout); reject(new Error('Session connection closed')); });
-    lines(socket, response => { socket.end(); response.type === 'error' ? reject(new Error(response.error)) : resolve(response); });
+    lines(socket, decodeMessage, response => {
+      socket.end();
+      if (response.type === 'error') { reject(new Error(response.error)); return; }
+      const expected = replyTypes[message.type];
+      if (response.type !== expected || (expected === 'state' && (!('pid' in response) || !('metrics' in response)))) { reject(new Error('Unexpected session response')); return; }
+      resolve(response as Reply<C>);
+    });
   });
 }

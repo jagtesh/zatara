@@ -1,7 +1,10 @@
 export const BAR = 44;
 export const TITLE = 36;
 export interface Rect { x: number; y: number; width: number; height: number }
-export interface AppDefinition { id: string; name: string; icon: string; command: string[]; kind: 'shell' | 'pixel'; available?: boolean; reason?: string }
+export type WindowAction = { op: 'move'; rect: Rect } | { op: 'focus' | 'maximize' | 'minimize' | 'close'; rect?: never };
+export type WindowOperation = WindowAction['op'];
+interface AppMetadata { id: string; name: string; icon: string; initialSize?: Pick<Rect, 'width' | 'height'>; available?: boolean; reason?: string }
+export type AppDefinition = AppMetadata & ({ kind: 'shell'; command: [] } | { kind: 'pixel'; command: [string, ...string[]] });
 export interface WindowState extends Rect {
   id: string; app: string; title: string; kind: 'shell' | 'pixel'; pid: number;
   minimized: boolean; maximized: boolean; restore?: Rect; status: string;
@@ -27,18 +30,24 @@ export function focus(s: DesktopState, id: string) {
   s.windows = [...s.windows.filter(w => w.id !== id), w];
   s.focused = id;
 }
-export function action(s: DesktopState, id: string, op: string, rect?: Rect) {
+export function action(s: DesktopState, id: string, command: WindowAction) {
+  const { op, rect } = command;
   const w = s.windows.find(w => w.id === id);
   if (!w) return;
-  if (op === 'focus') focus(s, id);
-  if (op === 'move' && rect && !w.maximized && [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)) Object.assign(w, constrain(rect, s.width, s.height));
-  if (op === 'maximize') {
-    if (w.maximized) { Object.assign(w, constrain(w.restore ?? w, s.width, s.height)); w.maximized = false; }
-    else { w.restore = { x: w.x, y: w.y, width: w.width, height: w.height }; w.maximized = true; }
-    focus(s, id);
+  switch (op) {
+    case 'focus': focus(s, id); return;
+    case 'move':
+      if (!w.maximized && [rect.x, rect.y, rect.width, rect.height].every(Number.isFinite)) Object.assign(w, constrain(rect, s.width, s.height));
+      return;
+    case 'maximize':
+      if (w.maximized) { Object.assign(w, constrain(w.restore ?? w, s.width, s.height)); w.maximized = false; }
+      else { w.restore = { x: w.x, y: w.y, width: w.width, height: w.height }; w.maximized = true; }
+      focus(s, id); return;
+    case 'minimize': w.minimized = true; break;
+    case 'close': s.windows = s.windows.filter(w => w.id !== id); break;
+    default: { const exhaustive: never = op; throw new Error(`Unknown window action: ${exhaustive}`); }
   }
-  if (op === 'minimize') { w.minimized = true; if (s.focused === id) s.focused = [...s.windows].reverse().find(w => !w.minimized)?.id ?? null; }
-  if (op === 'close') { s.windows = s.windows.filter(w => w.id !== id); if (s.focused === id) s.focused = [...s.windows].reverse().find(w => !w.minimized)?.id ?? null; }
+  if (s.focused === id) s.focused = [...s.windows].reverse().find(w => !w.minimized)?.id ?? null;
 }
 
 /** Pixel guests and shells share a cell-aligned viewport; decoration is outside it. */

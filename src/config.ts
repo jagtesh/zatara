@@ -44,9 +44,9 @@ export function readConfig(file = configPath()): Appearance {
   try {
     if (fs.statSync(file).size > 64 * 1024) throw new Error('Configuration exceeds 64 KiB');
     return parseConfig(JSON.parse(fs.readFileSync(file, 'utf8')));
-  } catch (e: any) {
-    if (e.code === 'ENOENT') return structuredClone(defaultAppearance);
-    throw new Error(`${file}: ${e.message}`);
+  } catch (e) {
+    if (e instanceof Error && 'code' in e && e.code === 'ENOENT') return structuredClone(defaultAppearance);
+    throw new Error(`${file}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 export function initConfig(file = configPath()) {
