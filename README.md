@@ -6,6 +6,11 @@ Floating windows, independent shells, desktop launch icons, a taskbar, and real
 graphical applications. The desktop and Pixel Studio use Pixel's native Rust
 renderer through React; they do not start Chromium. Browser/editor windows do.
 
+![Zatara desktop with a live shell and an independent Pixel Studio window](docs/images/desktop.png)
+
+**Your terminal, with room to move.** Drag, resize, overlap, and switch between
+real processes. Detach the desktop and come back to the same running apps.
+
 ## Run
 
 Requires Node 22+, macOS arm64, and a Kitty-graphics terminal such as Ghostty.
@@ -133,6 +138,8 @@ node dist/cli.js launch main sessions
 node dist/cli.js launch main tasks
 ```
 
+![Session Manager and Task Manager running as independent Pixel apps](docs/images/managers.png)
+
 Both are independent native Pixel applications. Sessions lists this host's
 sessions, creates new ones, switches the current desktop, detaches attachments,
 and ends sessions after an in-app confirmation. Switching preserves the old
@@ -164,3 +171,14 @@ validation, and custom paths.
 Use `runAppWindow` for native Pixel apps and `WindowFrameProps` for desktop
 frame changes. See [the window contracts guide](docs/window-contracts.md) for a
 minimal app, registration, typed actions, focus handling, and compiler checks.
+
+### Reproduce the screenshots
+
+The images above are native compositor captures at 1800×1188 with 12×27 terminal
+cells. They show real application processes, captured through the isolated test
+host; they are not mockups or captures of a live Ghostty window.
+
+```sh
+npm run build
+npx tsx scripts/readme-captures.ts
+```
