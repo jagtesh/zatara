@@ -5,8 +5,7 @@ React component through `runAppWindow`; they do not recreate host connections,
 font loading, focus/resize subscriptions, or shutdown handlers.
 
 ```tsx
-import { Box } from './pixel';
-import { AppText, runAppWindow, useAppWindow } from './app-window';
+import { Box, AppText, runAppWindow, useAppWindow } from './sdk';
 
 function Example() {
   const { focused, viewport } = useAppWindow();
@@ -30,6 +29,10 @@ Closing the host connection or explicitly closing the window ends the guest.
 The demo and both manager modes use this path. External Pixel guests and the
 Chromium-based editor keep their own upstream root implementations; their
 processes still receive the same Zatara frame and input routing.
+
+Apps use the [App SDK](app-sdk.md) for messaging, host services, and shared
+refresh behavior. Transport and session discovery are private implementation
+details; app code must not import host IPC or process-management modules.
 
 ## Registration and desktop frame
 

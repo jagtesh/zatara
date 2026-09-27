@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Box, Input } from './pixel';
-import { AppText as Text, runAppWindow } from './app-window';
+import { Box, Input, AppText as Text, runAppWindow } from './sdk';
 function Demo() {
   const [count, setCount] = useState(0), [text, setText] = useState('Make yourself at home.'), [accent, setAccent] = useState('#a78bfa');
   return <Box style={{ width: '100%', height: '100%', background: '#131c2d', padding: 28, flexDirection: 'column', gap: 20 }}>

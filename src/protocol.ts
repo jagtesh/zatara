@@ -11,7 +11,8 @@ export type ActionCommand = { type: 'action'; id: string } & WindowAction;
 export type ClientCommand =
   | { type: 'attach'; width: number; height: number; cell?: CellSize; colors?: TerminalColors }
   | { type: 'resize'; width: number; height: number; cell?: CellSize }
-  | { type: 'list' | 'inspect' | 'tasks' | 'detach' | 'kill' }
+  | { type: 'list' | 'inspect' | 'tasks' | 'detach' }
+  | { type: 'kill'; expected?: { pid: number; startedAt: number } }
   | { type: 'switch'; session: string }
   | { type: 'launch'; app: string }
   | ActionCommand
@@ -87,7 +88,14 @@ export function decodeCommand(value: unknown): ClientCommand {
       break;
     }
     case 'resize': dimensions(m); if (m.cell !== undefined) dimensions(record(m.cell)); break;
-    case 'list': case 'inspect': case 'tasks': case 'detach': case 'kill': break;
+    case 'list': case 'inspect': case 'tasks': case 'detach': break;
+    case 'kill':
+      if (m.expected !== undefined) {
+        const expected = record(m.expected);
+        number(expected.pid); number(expected.startedAt);
+        if (!Number.isSafeInteger(expected.pid) || (expected.pid as number) <= 0) throw new Error('Invalid session identity');
+      }
+      break;
     case 'switch': string(m.session); break;
     case 'launch': string(m.app); break;
     case 'screen': string(m.id); break;

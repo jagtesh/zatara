@@ -59,7 +59,12 @@ export function watchConfig(onChange: (appearance: Appearance) => void, onError:
   let previous = '';
   const reload = () => { try { const next = readConfig(file), json = JSON.stringify(next); if (json !== previous) { previous = json; onChange(next); } onError(''); } catch (e) { onError(String(e)); } };
   reload();
-  fs.watchFile(file, { interval: 750, persistent: false }, reload);
-  return () => fs.unwatchFile(file, reload);
+  // watchFile initializes its stat baseline asynchronously. A create/atomic
+  // replacement between the initial read and that baseline can go unnoticed
+  // indefinitely. Re-read the bounded configuration instead; callbacks still
+  // run only when the effective appearance changes.
+  const timer = setInterval(reload, 750);
+  timer.unref();
+  return () => clearInterval(timer);
 }
 export const appearance = structuredClone(defaultAppearance);

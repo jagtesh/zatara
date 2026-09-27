@@ -3,6 +3,7 @@ import React, { createContext, useContext } from 'react';
 import { createRoot, PixelRoot, Text, TextProps } from './pixel';
 import { watchConfig } from './config';
 import { applyAppearance } from './theme';
+import { closeRuntime } from './sdk/client';
 
 /** A guest owns content; Zatara owns decorations, geometry and process lifetime. */
 export interface AppWindowDefinition {
@@ -45,6 +46,7 @@ export function runAppWindow(definition: AppWindowDefinition) {
     if (stopped) return;
     stopped = true; stopConfig();
     process.off('SIGTERM', finish); process.off('SIGINT', finish);
+    closeRuntime();
     root?.stop();
   }
   function finish() { stop(); process.exit(0); }

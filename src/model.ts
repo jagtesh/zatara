@@ -3,7 +3,8 @@ export const TITLE = 36;
 export interface Rect { x: number; y: number; width: number; height: number }
 export type WindowAction = { op: 'move'; rect: Rect } | { op: 'focus' | 'maximize' | 'minimize' | 'close'; rect?: never };
 export type WindowOperation = WindowAction['op'];
-interface AppMetadata { id: string; name: string; icon: string; initialSize?: Pick<Rect, 'width' | 'height'>; available?: boolean; reason?: string }
+export interface MessagingPermissions { send?: string[]; receive?: string[]; publish?: string[]; subscribe?: string[] }
+interface AppMetadata { id: string; name: string; icon: string; initialSize?: Pick<Rect, 'width' | 'height'>; available?: boolean; reason?: string; messaging?: MessagingPermissions }
 export type AppDefinition = AppMetadata & ({ kind: 'shell'; command: [] } | { kind: 'pixel'; command: [string, ...string[]] });
 export interface WindowState extends Rect {
   id: string; app: string; title: string; kind: 'shell' | 'pixel'; pid: number;

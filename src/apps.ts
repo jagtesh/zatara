@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AppDefinition } from './model';
+import type { AppDefinition, MessagingPermissions } from './model';
+import { validName } from './sdk/wire';
 export function executable(name: string): string | null {
   if (name.includes('/')) return fs.existsSync(name) ? name : null;
   return (process.env.PATH ?? '').split(path.delimiter).map(p => path.join(p, name)).find(p => { try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } }) ?? null;
@@ -43,6 +44,22 @@ export function parseAppRegistrations(value: unknown): AppDefinition[] {
       if (typeof width !== 'number' || !Number.isFinite(width) || width < 120 || width > 8000 || typeof height !== 'number' || !Number.isFinite(height) || height < 140 || height > 8000) throw new Error('Invalid app initialSize');
       initialSize = { width, height };
     }
-    return { id, name, icon, command: command as [string, ...string[]], kind: 'pixel', initialSize };
+    const messaging = parseMessagingPermissions(a.messaging);
+    return { id, name, icon, command: command as [string, ...string[]], kind: 'pixel', initialSize, messaging };
   });
+}
+
+/** These grants come from the host's registration file, never the child process. */
+export function parseMessagingPermissions(value: unknown): MessagingPermissions | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid messaging permissions');
+  const result: MessagingPermissions = {};
+  for (const [key, names] of Object.entries(value)) {
+    if (!['send', 'receive', 'publish', 'subscribe'].includes(key) || !Array.isArray(names) ||
+        names.length > 64 || !names.every(validName)) {
+      throw new Error('Invalid messaging permissions');
+    }
+    result[key as keyof MessagingPermissions] = [...new Set(names as string[])];
+  }
+  return result;
 }

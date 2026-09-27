@@ -171,6 +171,8 @@ validation, and custom paths.
 Use `runAppWindow` for native Pixel apps and `WindowFrameProps` for desktop
 frame changes. See [the window contracts guide](docs/window-contracts.md) for a
 minimal app, registration, typed actions, focus handling, and compiler checks.
+The [App SDK guide](docs/app-sdk.md) describes the in-tree app API, private
+session-local messaging, host-controlled permissions, and delivery semantics.
 
 ### Reproduce the screenshots
 

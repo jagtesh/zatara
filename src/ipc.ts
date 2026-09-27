@@ -25,22 +25,28 @@ export function lines<T>(socket: net.Socket, decode: (value: unknown) => T, onMe
 function send(socket: net.Socket | null, message: ClientCommand | ServerMessage) {
   if (!socket || socket.destroyed) return false;
   if (socket.writableLength > 2 * 1024 * 1024) { socket.destroy(); return false; }
-  return socket.write(JSON.stringify(message) + '\n');
+  // write(false) means accepted with backpressure, not "not sent".
+  socket.write(JSON.stringify(message) + '\n');
+  return true;
 }
 export const sendCommand = (socket: net.Socket | null, message: ClientCommand) => send(socket, message);
 export const sendEvent = (socket: net.Socket | null, message: ServerMessage) => send(socket, message);
+export class RequestError extends Error {
+  constructor(public readonly outcome: 'rejected' | 'unknown' | 'not-sent', message: string) { super(message); }
+}
 export function request<C extends RpcCommand>(name: string, message: C, timeoutMs = 4000): Promise<Reply<C>> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(sessionPath(name));
+    let submitted = false;
     const timeout = setTimeout(() => socket.destroy(new Error('Session request timed out')), timeoutMs);
-    socket.on('connect', () => sendCommand(socket, message));
-    socket.on('error', reject);
-    socket.on('close', () => { clearTimeout(timeout); reject(new Error('Session connection closed')); });
+    socket.on('connect', () => { submitted = sendCommand(socket, message); });
+    socket.on('error', error => reject(new RequestError(submitted ? 'unknown' : 'not-sent', error.message)));
+    socket.on('close', () => { clearTimeout(timeout); reject(new RequestError(submitted ? 'unknown' : 'not-sent', 'Session connection closed')); });
     lines(socket, decodeMessage, response => {
       socket.end();
-      if (response.type === 'error') { reject(new Error(response.error)); return; }
+      if (response.type === 'error') { reject(new RequestError('rejected', response.error)); return; }
       const expected = replyTypes[message.type];
-      if (response.type !== expected || (expected === 'state' && (!('pid' in response) || !('metrics' in response)))) { reject(new Error('Unexpected session response')); return; }
+      if (response.type !== expected || (expected === 'state' && (!('pid' in response) || !('metrics' in response)))) { reject(new RequestError('unknown', 'Unexpected session response')); return; }
       resolve(response as Reply<C>);
     });
   });

@@ -9,6 +9,7 @@
     "test": "npm run check && npm run build && tsx --test test/*.test.ts",
     "check": "tsc -p tsconfig.contracts.json",
     "bench": "npm run build && tsx scripts/bench.ts",
+    "bench:runtime": "npm run build && tsx scripts/runtime-bench.ts",
     "postinstall": "node scripts/postinstall.cjs",
     "setup:apps": "node scripts/setup-apps.cjs",
     "test:apps": "npm run build && tsx scripts/apps-smoke.ts",
