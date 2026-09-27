@@ -67,7 +67,12 @@ function input(value: unknown) {
   const e = record(value);
   switch (e.type) {
     case 'text': case 'paste': string(e.text); return;
-    case 'key': string(e.key); oneOf(e.kind, ['press', 'repeat', 'release']); if (e.text !== undefined) string(e.text); break;
+    case 'key':
+      string(e.key); oneOf(e.kind, ['press', 'repeat', 'release']);
+      // Also accept native clients that have not normalized Pixel's null text.
+      if (e.text === null) delete e.text;
+      if (e.text !== undefined) string(e.text);
+      break;
     case 'mouse': number(e.x); number(e.y); oneOf(e.kind, ['down', 'up', 'move', 'scrollup', 'scrolldown', 'scrollleft', 'scrollright']); oneOf(e.button, ['left', 'middle', 'right', 'none']); break;
     case 'wheel': for (const k of ['x', 'y', 'deltaX', 'deltaY']) number(e[k]); break;
     default: throw new Error('Unknown window input');

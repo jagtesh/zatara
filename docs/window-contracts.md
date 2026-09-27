@@ -87,6 +87,15 @@ existing apps. Existing service code is not hot-reloaded by an attachment.
 
 ## Checks
 
+Text editing and selection belong to Pixel's shared `Input` control, not
+individual apps. Zatara forwards key identity and modifiers unchanged. Its
+native adapter normalizes Pixel 0.0.15's runtime `text: null` to an absent
+optional field (the upstream declaration says `text?: string`). IPC accepts
+and normalizes null key text too, while still rejecting non-string text/paste
+payloads. The attachment-side normalization also works with older services.
+The native Pixel Studio test verifies Backspace, Shift+Arrow selection, copying
+the selected substring, and replacement by paste through the full IPC path.
+
 `npm run check` compiles production code and `test/types/contracts.ts`. Negative
 examples use `@ts-expect-error`: compilation fails if an invalid action, missing
 field, empty launch command, or wrong RPC result becomes accepted. Unused locals,
