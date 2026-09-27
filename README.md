@@ -39,6 +39,25 @@ The desktop, shells and Pixel apps execute on the server. Linux native runtime
 dependencies still need validation; report launch failures rather than assuming
 the macOS acceptance results cover Linux.
 
+**Linux installation workaround:** If npm fails with
+`EXDEV: cross-device link not permitted, rename` during Pixel's postinstall,
+this is a bug in `@zenbu-labs/pixel` (present in version `0.0.15`). Its Electron
+installer tries to rename files from the system temporary directory into the
+package directory, which fails when they are on different filesystems or mounts.
+Retry with a temporary directory on the same filesystem as the global npm packages:
+
+```sh
+pixel_tmp="$(npm root -g)/.pixel-tmp"
+mkdir -p "$pixel_tmp"
+TMPDIR="$pixel_tmp" npm install -g @zatara-dev/desktop
+```
+
+Run these commands as the same user you use for the global npm installation;
+that user needs write access to the global npm directory. This also works with
+nvm without hardcoding a Node version. For a source install, use a temporary
+directory inside the checkout instead: `mkdir -p .tmp` followed by
+`TMPDIR="$PWD/.tmp" npm ci`.
+
 Double-click a desktop icon. Drag a title bar or resize an edge. Double-click a
 title bar to maximize/restore. Right-click a title bar or taskbar item for window
 actions. Click a taskbar item to restore/focus it. **Detach** or **Ctrl+Alt+D**
