@@ -64,14 +64,17 @@ actions. Click a taskbar item to restore/focus it. **Detach** or **Ctrl+Alt+D**
 leaves applications alive; closing a window ends that application.
 
 ```sh
-node dist/cli.js attach main
-node dist/cli.js list
-node dist/cli.js detach main
-node dist/cli.js launch main shell
-node dist/cli.js launch main demo
-node dist/cli.js inspect main
-node dist/cli.js kill main
+zatara attach main
+zatara list
+zatara detach main
+zatara launch main shell
+zatara launch main demo
+zatara inspect main
+zatara kill main
 ```
+
+These commands use the globally installed CLI. From a source checkout without
+a global install, replace `zatara` with `node dist/cli.js` after building.
 
 One attachment per session. A second attachment reports an error; detach the
 first explicitly before switching. Sessions survive attachment crashes and
@@ -79,15 +82,24 @@ terminal hangup, but not service crashes or machine restarts.
 
 ## Browser and editor
 
+The bundled download script supports **macOS arm64 only**. For a global npm
+installation, run:
+
 ```sh
-npm run setup:apps
-node dist/cli.js launch main browser
-node dist/cli.js launch main code
+node "$(npm root -g)/@zatara-dev/desktop/scripts/setup-apps.cjs"
+zatara launch main browser
+zatara launch main code
 ```
 
+From the source checkout, use `npm run setup:apps` instead. The script writes
+inside its package/checkout directory, which must be writable. On Linux or other
+architectures, provide compatible platform binaries using `ZATARA_BROWSER` and
+`ZATARA_CODE`; this download script cannot install them and their operation is
+not yet verified. Set overrides before starting a fresh session service.
+
 The optional setup downloads **terminal-browser 0.11.1** and **terminal-code/tode
-0.3.4** from their official releases into `.artifacts/apps`, without replacing
-installed binaries. These downloads are not included in the Git repository.
+0.3.4** from their official releases into the package/checkout’s
+`.artifacts/apps`, without replacing installed binaries. These downloads are not included in the Git repository.
 Start a new session after installation. Tode downloads code-server on first use
 and keeps its own data under the standard XDG directories.
 
@@ -103,7 +115,7 @@ stops that upstream service when no editor windows need it.
 
 ## Remote operation
 
-Install the project on the remote host and run `node dist/cli.js attach main`
+Install the project on the remote host and run `zatara attach main`
 inside an ordinary interactive SSH session. Only the graphics-capable terminal
 is required locally. The persistent service and guest connections stay on the
 remote host. Reconnect with the same command after an SSH disconnect.
@@ -127,10 +139,19 @@ Set `ZATARA_APPS` to an absolute path to a JSON array:
 Applications run as separate processes. Zatara supplies `PIXEL_TTY`, registers a
 Pixel pane owner, and owns the guest connection until the window closes. Native
 apps can also use `ZATARA_HOST`/`ZATARA_PANE`, as the Pixel Studio example does.
-Commands are argument arrays, not shell strings. The reusable presentation
-components are exported from `src/primitives.tsx`.
+Commands are argument arrays, not shell strings. External apps must implement
+the compatible Pixel guest protocol; registration alone does not adapt another
+GUI framework. GUI compatibility with non-Pixel apps is an explicit non-goal.
+
+`runAppWindow` and the presentation components in `src/primitives.tsx` are
+source-internal helpers for built-in apps. The npm package ships compiled
+runtime files, not these sources or TypeScript declarations; it is not a
+published application SDK. See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture,
+constraints, and planned work.
 
 ## Verification
+
+Run these developer commands from a source checkout with dev dependencies installed:
 
 ```sh
 npm test                  # real PTYs, native rendering and mouse integration
@@ -144,7 +165,8 @@ See [verification and measurements](docs/verification.md) for tested behavior,
 measured costs, and unverified boundaries. Screenshots and raw measurement JSON
 are written to `.artifacts/`. Runtime sockets and logs live in the private
 `zatara-<uid>` directory beneath the OS temporary directory; `ZATARA_RUNTIME`
-overrides it for tests. No network listener is opened by Zatara's session service.
+overrides it for tests. Existing custom directories are not chmod-enforced;
+use a private, user-owned directory. Session/app logs have no rotation or size cap. No network listener is opened by Zatara's session service.
 
 
 ## Desktop polish
@@ -153,7 +175,7 @@ The taskbar uses stable application labels, instance numbers, hover titles, and
 an overflow menu. Long window titles truncate before the controls. Decoration
 uses a compact shaded taskbar, bordered headers, rounded corners, and no shadows.
 See [polish results](docs/polish-results.md) for captures, rendering fixes, and
-measurement limits. Reproduce the native viewport captures after building with
+measurement limits. From a source checkout, reproduce the native viewport captures after building with
 `npx tsx scripts/polish-captures.ts`.
 
 ## Session Manager and Task Manager
@@ -161,8 +183,8 @@ measurement limits. Reproduce the native viewport captures after building with
 To terminate a session and its applications:
 
 ```sh
-node dist/cli.js list
-node dist/cli.js kill main       # substitute the session you want to end
+zatara list
+zatara kill main       # substitute the session you want to end
 ```
 
 Use `detach` to preserve applications instead. `create <name>` starts an empty,
@@ -171,8 +193,8 @@ detached session without requiring a terminal attachment.
 Double-click **Sessions** or **Task Manager** on the desktop, or launch them:
 
 ```sh
-node dist/cli.js launch main sessions
-node dist/cli.js launch main tasks
+zatara launch main sessions
+zatara launch main tasks
 ```
 
 ![Session Manager and Task Manager running as independent Pixel apps](docs/images/managers.png)
@@ -192,12 +214,12 @@ pause automatic refresh when unfocused; Refresh is always available.
 
 Existing session services keep their loaded code and app registry. After a
 build, create a fresh session to get new apps without disturbing existing work:
-`node dist/cli.js attach managers`. End old sessions explicitly when finished.
+`zatara attach managers`. End old sessions explicitly when finished.
 See [manager implementation and validation](docs/managers.md).
 
 ## Appearance overrides
 
-Edit `~/.config/zatara/config.json` (create it with `node dist/cli.js config init`).
+Edit `~/.config/zatara/config.json` (create it with `zatara config init`).
 UI font size, desktop heading size, desktop icon size, and icon label size are
 independent. Changes reload automatically without restarting apps. See the
 [configuration reference](docs/configuration.md) for examples, color overrides,
@@ -205,8 +227,9 @@ validation, and custom paths.
 
 ### Creating an app window
 
-Use `runAppWindow` for native Pixel apps and `WindowFrameProps` for desktop
-frame changes. See [the window contracts guide](docs/window-contracts.md) for a
+When developing inside this repository, use `runAppWindow` for built-in native
+Pixel apps and `WindowFrameProps` for desktop frame changes. These are internal
+contracts, not supported SDK exports from the installed npm package. See [the window contracts guide](docs/window-contracts.md) for a
 minimal app, registration, typed actions, focus handling, and compiler checks.
 The [App SDK guide](docs/app-sdk.md) describes the in-tree app API, private
 session-local messaging, host-controlled permissions, and delivery semantics.
@@ -216,6 +239,8 @@ session-local messaging, host-controlled permissions, and delivery semantics.
 The images above are native compositor captures at 1800×1188 with 12×27 terminal
 cells. They show real application processes, captured through the isolated test
 host; they are not mockups or captures of a live Ghostty window.
+
+From a source checkout:
 
 ```sh
 npm run build

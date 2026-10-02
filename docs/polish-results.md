@@ -43,7 +43,8 @@ This fixes the alpha mismatch without filtering or rescaling the desktop.
 
 ## Validation
 
-`npm test`: **7 passing tests**, including real PTYs, native Pixel guests,
+At polish revision `82cfd5a` (2026-09-26), `npm test` passed **7 tests**.
+This historical run included real PTYs, native Pixel guests,
 independent shell state, focus isolation, 50,000 output lines, dragging/resizing,
 maximize/restore, and abrupt reconnect with unchanged PIDs/state. New coverage
 exercises taskbar-edge context targeting, overflow restoration, long-title

@@ -50,7 +50,9 @@ detached. Lists scroll on smaller viewports and manager windows are resizable.
 
 ## Validation
 
-The automated suite contains 10 tests, including these new checks:
+At manager implementation revision `e3e76fc` (2026-09-26), the automated
+suite passed 10 tests, including these new checks. This is a historical count,
+not the size of the current suite:
 
 - Parse process time and deduplicate overlapping process roots.
 - Launch managers as independent processes and read real shell RSS/PIDs.

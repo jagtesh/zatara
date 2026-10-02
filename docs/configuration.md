@@ -5,10 +5,13 @@ Default location: `~/.config/zatara/config.json`, or
 `ZATARA_CONFIG=/absolute/path/config.json` selects another file.
 
 ```sh
-node dist/cli.js config path    # print the resolved location
-node dist/cli.js config init    # create defaults; refuses to overwrite
-node dist/cli.js config check   # validate JSON and supported settings
+zatara config path    # print the resolved location
+zatara config init    # create defaults; refuses to overwrite
+zatara config check   # validate JSON and supported settings
 ```
+
+These commands use the installed `zatara` executable. For source development,
+run `node dist/cli.js` in its place from the built repository root.
 
 For larger desktop icons and labels, independently of ordinary UI text:
 

@@ -43,7 +43,9 @@ than are visible, so full-screen TUIs need a fresh session for exact sizing.
 
 ## Validation
 
-`npm test`: 22 runtime tests plus compiler contract checks passed. Native
+At viewport-fix revision `e94d1d3` (2026-09-26), `npm test` passed 22 runtime
+tests plus compiler contract checks. This records that revision, not the
+current suite count. Native
 readback tests use real 16×34 cells, not merely `PIXEL_DISPLAY_SCALE=2` (that
 variable controls upstream web rendering, not the native UI). Coverage includes
 scaled guest input, dragging, maximize/restore, geometry, and reconnect PID

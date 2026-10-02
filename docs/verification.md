@@ -1,5 +1,9 @@
 # Verification — 2026-09-26
 
+This is the initial proof-of-concept record at revision `2fd50e9`. Later
+validation is recorded in [display scaling](display-scaling.md) and the current
+test suite; the platform limitations below describe this historical run.
+
 ## Exercised successfully
 
 - Independent native Pixel guests and real node-pty shell processes.
@@ -60,7 +64,9 @@ RSS sums may count shared pages multiple times. CPU is the difference in `ps`
 accumulated process CPU time across each interval. The upstream editor shares
 a code-server across windows; unrelated editor sessions can affect a rerun.
 
-Raw reports and rendered screenshots are in `.artifacts/`:
+The committed measurement summary is [measurements.json](measurements.json).
+Original raw reports and rendered screenshots were generated in ignored
+`.artifacts/` and are not included in a fresh clone:
 `benchmark.json`, `terminal-bandwidth.json`, `apps-verification.json`,
 `desktop.png`, and `pixel-apps-reconnected.png`.
 
